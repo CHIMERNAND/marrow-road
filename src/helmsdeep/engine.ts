@@ -5,10 +5,12 @@ import { HelmsPlayer } from "./player";
 import { TurretManager } from "./turrets";
 import { HelmsVFX } from "./vfx";
 import { HelmsAudio } from "./audio";
-import { type TurretType, TURRET_SPECS } from "./types";
+import { type TurretType, TURRET_SPECS, type BoltAmmoType, type CombatCallout } from "./types";
+
+export type AbilityId = "oil_dump" | "catapult_barrage" | "horn_of_helm" | "archer_volley";
 
 export type AbilityState = {
-  id: "oil_dump" | "catapult_barrage" | "horn_of_helm";
+  id: AbilityId;
   name: string;
   hotkey: string;
   cooldown: number;
@@ -29,7 +31,16 @@ export type HelmsGameState = {
   kills: number;
   headshots: number;
   isAiming: boolean;
-  hitmarker: "body" | "headshot" | null;
+  hitmarker: "body" | "headshot" | "shield" | null;
+  currentAmmo?: BoltAmmoType;
+  weaponLevel?: number;
+  weaponUpgradeCost?: number;
+  combo?: number;
+  comboTimer?: number;
+  powderBarrelsRemaining?: number;
+  bossHp?: number;
+  bossMaxHp?: number;
+  callouts?: CombatCallout[];
   abilities: AbilityState[];
   selectedSocketId: number | null;
   turretSockets: Array<{

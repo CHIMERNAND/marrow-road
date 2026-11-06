@@ -15,10 +15,18 @@ import {
   ChevronUp,
   X,
   MousePointer,
+  Zap,
+  Snowflake,
+  Shield,
 } from "lucide-react";
-import { type HelmsGameState } from "@/helmsdeep/engine";
+import { type AbilityId, type HelmsGameState } from "@/helmsdeep/engine";
 import { BabylonHelmsEngine } from "@/babylon/engine";
-import { TURRET_SPECS, type TurretType } from "@/helmsdeep/types";
+import {
+  TURRET_SPECS,
+  type TurretType,
+  BOLT_AMMO_SPECS,
+  type BoltAmmoType,
+} from "@/helmsdeep/types";
 
 export function HelmsDeepGame() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -81,6 +89,9 @@ export function HelmsDeepGame() {
         engineRef.current.startWaveNow();
         e.preventDefault();
         return;
+      }
+      if (e.code === "Tab") {
+        e.preventDefault();
       }
       if (e.code === "Escape") {
         setSelectedSocket(null);
@@ -152,9 +163,21 @@ export function HelmsDeepGame() {
     }
   };
 
-  const handleAbility = (id: "oil_dump" | "catapult_barrage" | "horn_of_helm") => {
+  const handleAbility = (id: AbilityId) => {
     if (engineRef.current) {
       engineRef.current.useAbility(id);
+    }
+  };
+
+  const handleSelectAmmo = (ammo: BoltAmmoType) => {
+    if (engineRef.current) {
+      engineRef.current.setAmmo(ammo);
+    }
+  };
+
+  const handleUpgradeCrossbow = () => {
+    if (engineRef.current) {
+      engineRef.current.upgradeCrossbow();
     }
   };
 
@@ -166,6 +189,10 @@ export function HelmsDeepGame() {
     selectedSocket !== null && gameState
       ? gameState.turretSockets.find((s) => s.id === selectedSocket)
       : null;
+
+  const activeAmmo = gameState?.currentAmmo || "bodkin";
+  const comboCount = gameState?.combo || 0;
+  const comboMultiplier = Math.min(2.5, 1 + Math.floor(comboCount / 3) * 0.25);
 
   return (
     <div
@@ -201,7 +228,10 @@ export function HelmsDeepGame() {
           </div>
         ) : (
           <div className="relative w-10 h-10 flex items-center justify-center">
-            <div className="w-2 h-2 rounded-full bg-amber-200/90 shadow-[0_0_8px_gold]" />
+            <div
+              className="w-2 h-2 rounded-full shadow-[0_0_8px_gold]"
+              style={{ backgroundColor: BOLT_AMMO_SPECS[activeAmmo].color }}
+            />
             <div className="absolute -top-3 w-0.5 h-2 bg-amber-300/80" />
             <div className="absolute -bottom-3 w-0.5 h-2 bg-amber-300/80" />
             <div className="absolute -left-3 w-2 h-0.5 bg-amber-300/80" />
@@ -218,6 +248,14 @@ export function HelmsDeepGame() {
             </span>
           </div>
         )}
+        {gameState?.hitmarker === "shield" && (
+          <div className="absolute flex flex-col items-center justify-center animate-pulse text-sky-300">
+            <Shield className="w-9 h-9 text-sky-300 drop-shadow-[0_0_12px_rgba(56,189,248,0.9)]" />
+            <span className="text-[10px] font-black tracking-widest text-sky-200 mt-6">
+              SHIELD BLOCKED
+            </span>
+          </div>
+        )}
         {gameState?.hitmarker === "body" && (
           <div className="absolute w-8 h-8 flex items-center justify-center animate-pulse">
             <div className="absolute w-3 h-0.5 bg-amber-300 rotate-45 translate-x-2 translate-y-2" />
@@ -228,9 +266,32 @@ export function HelmsDeepGame() {
         )}
       </div>
 
+      {/* FLOATING COMBAT CALLOUT MEDALS (Right-side tactical feed) */}
+      <div className="pointer-events-none absolute top-20 right-4 flex flex-col items-end gap-2 z-20">
+        {gameState?.callouts?.map((c) => (
+          <div
+            key={c.id}
+            className={`px-3.5 py-1.5 rounded-xl border backdrop-blur-md shadow-2xl flex flex-col items-end animate-in fade-in slide-in-from-right-4 ${
+              c.color === "red"
+                ? "bg-red-950/90 border-red-400 text-red-200"
+                : c.color === "cyan"
+                ? "bg-sky-950/90 border-sky-400 text-sky-200"
+                : c.color === "orange"
+                ? "bg-orange-950/90 border-orange-400 text-orange-200"
+                : c.color === "purple"
+                ? "bg-purple-950/90 border-purple-400 text-purple-200"
+                : "bg-amber-950/90 border-amber-400 text-amber-200"
+            }`}
+          >
+            <span className="text-xs font-black tracking-wider uppercase">{c.text}</span>
+            {c.subtext && <span className="text-[10px] font-semibold opacity-90">{c.subtext}</span>}
+          </div>
+        ))}
+      </div>
+
       {/* TOP HUD: Gate Health, Wave, Gold */}
       <div className="pointer-events-none absolute top-0 inset-x-0 p-4 flex items-start justify-between bg-gradient-to-b from-stone-950/85 via-stone-950/35 to-transparent">
-        {/* Top Left: Wave Status & Kills */}
+        {/* Top Left: Wave Status, Kills & Marksman Combo */}
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-2">
             <span className="px-3 py-1 rounded-lg bg-amber-600/40 border border-amber-400/60 text-amber-300 font-black tracking-wider text-sm uppercase shadow">
@@ -253,10 +314,48 @@ export function HelmsDeepGame() {
               <Skull className="w-3.5 h-3.5 text-stone-300" />
               Kills: {gameState?.kills || 0} ({gameState?.headshots || 0} Headshots)
             </span>
-            <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[10px] uppercase tracking-wider font-bold">
-              Babylon.js Engine
+            <span className="px-2 py-0.5 rounded bg-orange-950/80 border border-orange-500/50 text-orange-300 text-[10px] uppercase tracking-wider font-bold">
+              Powder Casks: {gameState?.powderBarrelsRemaining ?? 8}
             </span>
           </div>
+
+          {/* Quiver Ammo Selector [Key Q] */}
+          <div className="pointer-events-auto flex items-center gap-1 p-1 rounded-xl bg-stone-900/90 border border-stone-700/80 backdrop-blur-md shadow-lg w-fit mt-0.5">
+            <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider px-1.5">
+              Bolts [Q]:
+            </span>
+            {(["bodkin", "fire", "frost", "scatter"] as BoltAmmoType[]).map((ammo) => {
+              const spec = BOLT_AMMO_SPECS[ammo];
+              const isSelected = activeAmmo === ammo;
+              return (
+                <button
+                  key={ammo}
+                  onClick={() => handleSelectAmmo(ammo)}
+                  title={spec.desc}
+                  className={`px-2 py-0.5 rounded-lg border text-[11px] font-bold flex items-center gap-1 transition cursor-pointer ${
+                    isSelected
+                      ? "bg-amber-500/25 border-amber-400 text-amber-200 shadow-[0_0_10px_rgba(245,158,11,0.35)]"
+                      : "bg-stone-950/70 border-stone-800 text-stone-400 hover:text-stone-200"
+                  }`}
+                >
+                  {ammo === "bodkin" && <Crosshair className="w-3 h-3 text-amber-400" />}
+                  {ammo === "fire" && <Flame className="w-3 h-3 text-orange-400" />}
+                  {ammo === "frost" && <Snowflake className="w-3 h-3 text-sky-400" />}
+                  {ammo === "scatter" && <Sparkles className="w-3 h-3 text-purple-400" />}
+                  <span>{spec.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {comboCount >= 2 && (
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/70 text-amber-300 text-xs font-black w-fit shadow">
+              <Zap className="w-3.5 h-3.5 text-yellow-300 animate-bounce" />
+              <span>
+                {comboCount}x KILLSTREAK ({comboMultiplier.toFixed(2)}x Gold)
+              </span>
+            </div>
+          )}
 
           {gameState?.status === "preparing" && (
             <button
@@ -298,19 +397,67 @@ export function HelmsDeepGame() {
               style={{ width: `${gateHealthPercent}%` }}
             />
           </div>
-          {gateHealthPercent < 100 && (
+          {(gateHealthPercent < 100 || (gameState?.powderBarrelsRemaining ?? 8) < 8) && (
             <button
               onClick={handleRepair}
               className="pointer-events-auto mt-1.5 px-3 py-1 bg-stone-900/90 hover:bg-stone-800 border border-amber-400/50 text-amber-300 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition shadow cursor-pointer"
             >
               <Wrench className="w-3.5 h-3.5 text-amber-400" />
-              Reinforce Gate (+250 HP) [100 Gold / Key R]
+              Reinforce Gate & Restock Casks [100 Gold / Key R]
             </button>
+          )}
+          {(gameState?.bossHp || 0) > 0 && (
+            <div className="w-full mt-2 flex flex-col items-center">
+              <div className="flex items-center justify-between w-full text-[10px] font-black uppercase tracking-widest text-fuchsia-300 mb-0.5">
+                <span className="flex items-center gap-1">
+                  <Skull className="w-3 h-3 text-fuchsia-400" />
+                  Siege Warlord of Udûn
+                </span>
+                <span>
+                  {gameState?.bossHp} / {gameState?.bossMaxHp} HP
+                </span>
+              </div>
+              <div className="w-full h-2.5 rounded-full bg-stone-950/90 border border-fuchsia-500/60 p-0.5 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-fuchsia-600 via-purple-500 to-rose-500 transition-all duration-200"
+                  style={{
+                    width: `${Math.max(
+                      2,
+                      Math.round(((gameState?.bossHp || 0) / (gameState?.bossMaxHp || 520)) * 100),
+                    )}%`,
+                  }}
+                />
+              </div>
+            </div>
           )}
         </div>
 
-        {/* Top Right: Gold, Sound, and Pointer Lock Status */}
-        <div className="flex items-center gap-3">
+        {/* Top Right: Gold, Arbalest Upgrade & Sound */}
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleUpgradeCrossbow}
+            disabled={
+              (gameState?.weaponLevel || 1) >= 5 ||
+              (gameState?.gold || 0) < (gameState?.weaponUpgradeCost || 120)
+            }
+            className={`pointer-events-auto px-3 py-1.5 rounded-xl border text-xs font-black flex items-center gap-1.5 transition shadow-lg ${
+              (gameState?.weaponLevel || 1) >= 5
+                ? "bg-stone-900/80 border-amber-500/40 text-amber-300 cursor-default"
+                : (gameState?.gold || 0) >= (gameState?.weaponUpgradeCost || 120)
+                ? "bg-emerald-950/90 hover:bg-emerald-900 border-emerald-400 text-emerald-200 cursor-pointer"
+                : "bg-stone-900/70 border-stone-700 text-stone-400 opacity-60 cursor-not-allowed"
+            }`}
+          >
+            <ChevronUp className="w-4 h-4 text-emerald-400" />
+            {(gameState?.weaponLevel || 1) >= 5 ? (
+              <span>Arbalest Max (Tier 5)</span>
+            ) : (
+              <span>
+                Upgrade Arbalest Lv.{gameState?.weaponLevel || 1} [{gameState?.weaponUpgradeCost || 120}G / Key G]
+              </span>
+            )}
+          </button>
+
           <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/60 text-amber-300 font-black tracking-wide shadow-lg">
             <Coins className="w-4 h-4 text-yellow-400 animate-bounce" />
             <span className="text-base">{gameState?.gold || 0} Gold</span>
@@ -330,18 +477,18 @@ export function HelmsDeepGame() {
       {!isPointerLocked && (
         <div
           onClick={requestLock}
-          className="absolute bottom-32 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-stone-900/95 hover:bg-stone-800 border border-amber-400/80 text-amber-300 font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-2xl cursor-pointer transition hover:scale-105"
+          className="absolute bottom-28 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-stone-900/95 hover:bg-stone-800 border border-amber-400/80 text-amber-300 font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-2xl cursor-pointer transition hover:scale-105 whitespace-nowrap"
         >
           <MousePointer className="w-3.5 h-3.5 text-amber-400" />
-          Click Screen to Aim Crossbow • [A/D] Strafe • [W/S or V] Elevate View • [L-Click] Shoot • [R-Click] Zoom
+          Click to Aim Crossbow • [Q] Switch Bolt Ammo • [1-4] Siege Abilities • [G] Upgrade Arbalest • Shoot Red Powder Casks!
         </div>
       )}
 
-      {/* BOTTOM HUD: Ability Bar & Turret Battlement Sockets */}
-      <div className="absolute bottom-3 inset-x-0 px-6 flex flex-col items-center gap-3 pointer-events-none">
+      {/* BOTTOM HUD: Turret Battlement Sockets & Siege Abilities */}
+      <div className="absolute bottom-3 inset-x-0 px-6 flex flex-col items-center gap-2.5 pointer-events-none">
         {/* Wall Sockets Overview Bar */}
-        <div className="pointer-events-auto flex items-center gap-2 p-2 rounded-2xl bg-stone-900/95 border border-stone-700/80 backdrop-blur-md shadow-2xl">
-          <span className="text-[11px] font-black text-amber-400 uppercase tracking-widest px-2 flex items-center gap-1">
+        <div className="pointer-events-auto flex items-center gap-1.5 p-1.5 rounded-2xl bg-stone-900/95 border border-stone-700/80 backdrop-blur-md shadow-2xl">
+          <span className="text-[10px] font-black text-amber-400 uppercase tracking-widest px-2 flex items-center gap-1">
             <Crosshair className="w-3.5 h-3.5" />
             Wall Turrets:
           </span>
@@ -349,7 +496,7 @@ export function HelmsDeepGame() {
             <button
               key={s.id}
               onClick={() => setSelectedSocket(selectedSocket === s.id ? null : s.id)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
                 selectedSocket === s.id
                   ? "bg-amber-500 text-stone-950 border-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.6)]"
                   : s.turretType
@@ -386,7 +533,6 @@ export function HelmsDeepGame() {
             </div>
 
             {currentSocketData.turretType ? (
-              // Already occupied: Upgrade option
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <div className="font-bold text-stone-100 text-sm">
@@ -406,7 +552,7 @@ export function HelmsDeepGame() {
                     {Math.round(
                       TURRET_SPECS[currentSocketData.turretType].cost *
                         0.85 *
-                        currentSocketData.level
+                        currentSocketData.level,
                     )}{" "}
                     Gold)
                   </button>
@@ -417,7 +563,6 @@ export function HelmsDeepGame() {
                 )}
               </div>
             ) : (
-              // Empty: Purchase options
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {(["repeater", "oil", "mortar", "ballista"] as TurretType[]).map((type) => {
                   const spec = TURRET_SPECS[type];
@@ -455,13 +600,13 @@ export function HelmsDeepGame() {
         )}
 
         {/* Active Siege Abilities Hotbar */}
-        <div className="pointer-events-auto flex items-center gap-3">
+        <div className="pointer-events-auto flex items-center gap-2.5">
           {gameState?.abilities.map((ab) => (
             <button
               key={ab.id}
               disabled={!ab.ready}
               onClick={() => handleAbility(ab.id)}
-              className={`relative px-4 py-2.5 rounded-xl border flex items-center gap-2.5 transition active:scale-95 shadow-2xl ${
+              className={`relative px-3.5 py-2 rounded-xl border flex items-center gap-2 transition active:scale-95 shadow-2xl ${
                 ab.ready
                   ? "bg-stone-900/95 hover:bg-stone-800 border-amber-500/60 text-stone-100 hover:border-amber-400 cursor-pointer"
                   : "bg-stone-950/85 border-stone-800 text-stone-500 cursor-not-allowed"
@@ -479,6 +624,7 @@ export function HelmsDeepGame() {
               {ab.id === "oil_dump" && <Flame className="w-4 h-4 text-orange-400 ml-1" />}
               {ab.id === "catapult_barrage" && <Bomb className="w-4 h-4 text-amber-400 ml-1" />}
               {ab.id === "horn_of_helm" && <Sparkles className="w-4 h-4 text-cyan-400 ml-1" />}
+              {ab.id === "archer_volley" && <Swords className="w-4 h-4 text-emerald-400 ml-1" />}
             </button>
           ))}
         </div>

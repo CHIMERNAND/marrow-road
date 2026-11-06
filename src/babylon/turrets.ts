@@ -13,6 +13,7 @@ export interface BabylonTurretProjectile {
   pierce: number;
   radius: number;
   isArc: boolean;
+  isFlaming?: boolean;
   dead: boolean;
 }
 
@@ -76,7 +77,6 @@ export class BabylonTurretManager {
     pivot.position.y = 0.7;
     pivot.parent = root;
 
-    // Pedestal base
     const pedestal = BABYLON.MeshBuilder.CreateCylinder(
       `pedestal_${socketId}`,
       { diameterTop: 1.4, diameterBottom: 1.9, height: 0.7, tessellation: 14 },
@@ -144,7 +144,6 @@ export class BabylonTurretManager {
       payload.material = this.fireMat;
       payload.parent = pivot;
     } else {
-      // Heavy Harpoon Ballista
       const rail = BABYLON.MeshBuilder.CreateCapsule(
         `balRail_${socketId}`,
         { radius: 0.28, height: 2.4, tessellation: 12 },
@@ -209,6 +208,38 @@ export class BabylonTurretManager {
     }
   }
 
+  public spawnDirectBolt(
+    startPos: BABYLON.Vector3,
+    target: BabylonZombie,
+    damage: number,
+    isFlaming = false,
+  ) {
+    const aimPoint = target.pos.add(
+      new BABYLON.Vector3((Math.random() - 0.5) * 0.9, 2.0, (Math.random() - 0.5) * 0.9),
+    );
+    const dir = aimPoint.subtract(startPos).normalize();
+    const bolt = BABYLON.MeshBuilder.CreateSphere(
+      "sentinelArrow",
+      { diameter: 0.3, segments: 6 },
+      this.scene,
+    );
+    bolt.position.copyFrom(startPos);
+    bolt.material = isFlaming ? this.fireMat : this.boltMat;
+
+    this.projectiles.push({
+      type: "repeater",
+      mesh: bolt,
+      pos: startPos.clone(),
+      vel: dir.scale(75),
+      damage,
+      pierce: 1,
+      radius: 0.65,
+      isArc: false,
+      isFlaming,
+      dead: false,
+    });
+  }
+
   public update(
     dt: number,
     zombies: BabylonZombie[],
@@ -262,6 +293,8 @@ export class BabylonTurretManager {
             if (d <= p.radius) {
               const falloff = 1 - d / p.radius;
               z.hp -= Math.round(p.damage * Math.max(0.4, falloff));
+              z.burnTimer = 3.5;
+              z.burnDps = 18;
               if (z.hp <= 0) {
                 z.dead = true;
                 onKill(z);
@@ -284,6 +317,10 @@ export class BabylonTurretManager {
           );
           if (d <= z.radius + 0.5) {
             z.hp -= p.damage;
+            if (p.isFlaming) {
+              z.burnTimer = 3.0;
+              z.burnDps = 15;
+            }
             vfx.spawnHitSparks(p.pos, 5);
             audio.playHit();
 
@@ -353,7 +390,6 @@ export class BabylonTurretManager {
       return;
     }
 
-    // Repeater or Ballista direct bolt
     const aimPoint = target.pos.add(new BABYLON.Vector3(0, 1.8, 0));
     const dir = aimPoint.subtract(muzzle).normalize();
     const speed = turret.type === "ballista" ? 85 : 70;

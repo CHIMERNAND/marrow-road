@@ -7,6 +7,9 @@ export interface BabylonZombie {
   root: BABYLON.TransformNode;
   headMesh: BABYLON.Mesh;
   limbs: BABYLON.TransformNode[];
+  shieldMesh?: BABYLON.Mesh;
+  burnAuraMesh?: BABYLON.Mesh;
+  frostAuraMesh?: BABYLON.Mesh;
   hpBarBg: BABYLON.Mesh;
   hpBarFill: BABYLON.Mesh;
   hpBarMat: BABYLON.StandardMaterial;
@@ -17,10 +20,19 @@ export interface BabylonZombie {
   maxHp: number;
   gold: number;
   damage: number;
+  hasShield: boolean;
+  shieldHp: number;
+  burnTimer: number;
+  burnDps: number;
+  frostTimer: number;
+  staggerTimer: number;
+  ritualTimer: number;
+  dyingTimer: number;
   attackTimer: number;
   walkTimer: number;
   isAttackingGate: boolean;
   dead: boolean;
+  collapseProcessed: boolean;
   radius: number;
   headRadius: number;
 }
@@ -44,6 +56,8 @@ export class BabylonZombieHorde {
   private eyeGoldMat: BABYLON.StandardMaterial;
   private wraithCloakMat: BABYLON.StandardMaterial;
   private wraithCoreMat: BABYLON.StandardMaterial;
+  private burnAuraMat: BABYLON.StandardMaterial;
+  private frostAuraMat: BABYLON.StandardMaterial;
   private hpBgMat: BABYLON.StandardMaterial;
 
   constructor(scene: BABYLON.Scene, shadowGenerator?: BABYLON.ShadowGenerator) {
@@ -85,12 +99,12 @@ export class BabylonZombieHorde {
     this.leatherMat.specularColor = new BABYLON.Color3(0.15, 0.1, 0.07);
 
     this.tatteredClothMat = new BABYLON.StandardMaterial("zTatteredClothMat", scene);
-    this.tatteredClothMat.diffuseColor = new BABYLON.Color3(0.28, 0.1, 0.09);
-    this.tatteredClothMat.specularColor = new BABYLON.Color3(0.06, 0.04, 0.04);
+    this.tatteredClothMat.diffuseColor = new BABYLON.Color3(0.38, 0.09, 0.08);
+    this.tatteredClothMat.specularColor = new BABYLON.Color3(0.08, 0.04, 0.04);
 
     this.woodShieldMat = new BABYLON.StandardMaterial("zWoodShieldMat", scene);
-    this.woodShieldMat.diffuseColor = new BABYLON.Color3(0.32, 0.2, 0.11);
-    this.woodShieldMat.specularColor = new BABYLON.Color3(0.12, 0.08, 0.05);
+    this.woodShieldMat.diffuseColor = new BABYLON.Color3(0.34, 0.21, 0.11);
+    this.woodShieldMat.specularColor = new BABYLON.Color3(0.14, 0.09, 0.05);
 
     this.eyeEmberMat = new BABYLON.StandardMaterial("zEyeEmberMat", scene);
     this.eyeEmberMat.emissiveColor = new BABYLON.Color3(1.0, 0.22, 0.05);
@@ -110,6 +124,16 @@ export class BabylonZombieHorde {
     this.wraithCoreMat.alpha = 0.72;
     this.wraithCoreMat.disableLighting = true;
 
+    this.burnAuraMat = new BABYLON.StandardMaterial("zBurnAuraMat", scene);
+    this.burnAuraMat.emissiveColor = new BABYLON.Color3(1.0, 0.42, 0.05);
+    this.burnAuraMat.alpha = 0.68;
+    this.burnAuraMat.disableLighting = true;
+
+    this.frostAuraMat = new BABYLON.StandardMaterial("zFrostAuraMat", scene);
+    this.frostAuraMat.emissiveColor = new BABYLON.Color3(0.25, 0.82, 1.0);
+    this.frostAuraMat.alpha = 0.72;
+    this.frostAuraMat.disableLighting = true;
+
     this.hpBgMat = new BABYLON.StandardMaterial("zHpBgMat", scene);
     this.hpBgMat.emissiveColor = new BABYLON.Color3(0.04, 0.04, 0.05);
     this.hpBgMat.disableLighting = true;
@@ -120,6 +144,7 @@ export class BabylonZombieHorde {
     const root = new BABYLON.TransformNode(`zombie_${id}`, this.scene);
     const limbs: BABYLON.TransformNode[] = [];
     let headMesh!: BABYLON.Mesh;
+    let shieldMesh: BABYLON.Mesh | undefined;
 
     let hp = 68;
     let speed = 6.8;
@@ -128,19 +153,21 @@ export class BabylonZombieHorde {
     let radius = 1.5;
     let headRadius = 0.85;
     let badgeHeight = 4.3;
+    let hasShield = false;
+    let shieldHp = 0;
 
     const startX = (Math.random() - 0.5) * spreadX * 2;
     const targetX = (Math.random() - 0.5) * 6.5;
     const targetPos = new BABYLON.Vector3(targetX, 0, gateZ - 1.2);
 
     if (type === "runner") {
-      // 1. FERAL GHOUL BERSERKER (Sinewy, hunched predator with exposed spine, skull, and dual cleavers)
-      hp = 42;
-      speed = 13.5;
-      gold = 14;
-      damage = 11;
+      // 1. FERAL GHOUL BERSERKER
+      hp = 44;
+      speed = 13.8;
+      gold = 15;
+      damage = 12;
       radius = 1.4;
-      headRadius = 0.8;
+      headRadius = 0.82;
       badgeHeight = 3.7;
 
       const waist = BABYLON.MeshBuilder.CreateCapsule(
@@ -163,7 +190,6 @@ export class BabylonZombieHorde {
       ribcage.material = this.fleshMat;
       ribcage.parent = root;
 
-      // Sculpted Rib Ridges & Vertebrae
       for (let r = 0; r < 4; r++) {
         const rib = BABYLON.MeshBuilder.CreateTorus(
           `rib_${id}_${r}`,
@@ -226,133 +252,179 @@ export class BabylonZombieHorde {
         1.1,
         -0.12,
       );
-      limbs.push(armL, armR, legL, legR);
-    } else if (type === "brute") {
-      // 2. ARMORED SIEGE TROLL / URUK JUGGERNAUT (Heavy blackened plate armor, horned siege helm, warhammer)
-      hp = 270;
-      speed = 5.0;
-      gold = 45;
-      damage = 50;
-      radius = 2.4;
-      headRadius = 1.2;
-      badgeHeight = 6.2;
+      limbs.push(armL.shoulder, armR.shoulder, legL, legR);
+    } else if (type === "brute" || type === "warlord") {
+      // 2. ARMORED SIEGE TROLL / WARLORD CHAMPION
+      const isWarlord = type === "warlord";
+      const scale = isWarlord ? 1.18 : 1.0;
+      hp = isWarlord ? 520 : 275;
+      speed = isWarlord ? 5.6 : 5.0;
+      gold = isWarlord ? 110 : 48;
+      damage = isWarlord ? 75 : 50;
+      radius = 2.4 * scale;
+      headRadius = 1.22 * scale;
+      badgeHeight = 6.3 * scale;
+      hasShield = true;
+      shieldHp = isWarlord ? 140 : 85;
 
-      // Pelvis & Armored Tassets
       const pelvis = BABYLON.MeshBuilder.CreateCylinder(
         `pelvis_${id}`,
-        { diameterTop: 1.55, diameterBottom: 1.75, height: 1.2, tessellation: 14 },
+        { diameterTop: 1.55 * scale, diameterBottom: 1.75 * scale, height: 1.2 * scale, tessellation: 14 },
         this.scene,
       );
-      pelvis.position.set(0, 2.1, 0);
+      pelvis.position.set(0, 2.1 * scale, 0);
       pelvis.material = this.leatherMat;
       pelvis.parent = root;
 
-      // V-Tapered Muscular Upper Torso in Blackened Steel Plate
       const chest = BABYLON.MeshBuilder.CreateCylinder(
         `chest_${id}`,
-        { diameterTop: 2.35, diameterBottom: 1.5, height: 2.1, tessellation: 16 },
+        { diameterTop: 2.35 * scale, diameterBottom: 1.5 * scale, height: 2.1 * scale, tessellation: 16 },
         this.scene,
       );
-      chest.position.set(0, 3.55, 0.08);
+      chest.position.set(0, 3.55 * scale, 0.08);
       chest.rotation.x = 0.12;
       chest.material = this.darkPlateMat;
       chest.parent = root;
 
-      // Layered Steel Pauldrons with Spikes
       for (const side of [-1, 1]) {
         const pauldron = BABYLON.MeshBuilder.CreateSphere(
           `pauldron_${id}_${side}`,
-          { diameterX: 1.25, diameterY: 1.0, diameterZ: 1.25, slice: 0.6, segments: 12 },
+          {
+            diameterX: 1.25 * scale,
+            diameterY: 1.0 * scale,
+            diameterZ: 1.25 * scale,
+            slice: 0.6,
+            segments: 12,
+          },
           this.scene,
         );
-        pauldron.position.set(side * 1.38, 4.25, 0.08);
+        pauldron.position.set(side * 1.38 * scale, 4.25 * scale, 0.08);
         pauldron.rotation.z = side * -0.35;
         pauldron.material = this.darkPlateMat;
         pauldron.parent = root;
 
         const spike = BABYLON.MeshBuilder.CreateCylinder(
           `pSpike_${id}_${side}`,
-          { diameterTop: 0.02, diameterBottom: 0.2, height: 0.55, tessellation: 8 },
+          { diameterTop: 0.02, diameterBottom: 0.22 * scale, height: 0.6 * scale, tessellation: 8 },
           this.scene,
         );
-        spike.position.set(side * 1.55, 4.75, 0.08);
+        spike.position.set(side * 1.55 * scale, 4.75 * scale, 0.08);
         spike.rotation.z = side * -0.25;
         spike.material = this.boneMat;
         spike.parent = root;
+
+        if (isWarlord) {
+          // Twin Back-Mounted Warlord Siege Standards
+          const pole = BABYLON.MeshBuilder.CreateCylinder(
+            `wPole_${id}_${side}`,
+            { diameter: 0.08, height: 2.6, tessellation: 6 },
+            this.scene,
+          );
+          pole.position.set(side * 0.75, 5.4 * scale, -0.45);
+          pole.rotation.z = side * -0.15;
+          pole.material = this.woodShieldMat;
+          pole.parent = root;
+
+          const flag = BABYLON.MeshBuilder.CreateBox(
+            `wFlag_${id}_${side}`,
+            { width: 0.75, height: 1.4, depth: 0.05 },
+            this.scene,
+          );
+          flag.position.set(side * 0.85, 5.9 * scale, -0.45);
+          flag.material = this.tatteredClothMat;
+          flag.parent = root;
+        }
       }
 
-      // Crimson Tattered War-Tabard hanging between legs
       const tabard = BABYLON.MeshBuilder.CreateBox(
         `tabard_${id}`,
-        { width: 0.95, height: 1.6, depth: 0.12 },
+        { width: 0.95 * scale, height: 1.6 * scale, depth: 0.12 },
         this.scene,
       );
-      tabard.position.set(0, 1.85, 0.78);
+      tabard.position.set(0, 1.85 * scale, 0.78 * scale);
       tabard.material = this.tatteredClothMat;
       tabard.parent = root;
 
-      headMesh = this.buildRealisticSkull(id, 1.25, this.bruteHideMat, this.eyeGoldMat, true);
-      headMesh.position.set(0, 4.95, 0.25);
+      headMesh = this.buildRealisticSkull(
+        id,
+        1.25 * scale,
+        this.bruteHideMat,
+        isWarlord ? this.eyeEmberMat : this.eyeGoldMat,
+        true,
+      );
+      headMesh.position.set(0, 4.95 * scale, 0.25);
       headMesh.parent = root;
+
+      if (isWarlord) {
+        // Blazing Iron Crown on the Siege Warlord
+        const crown = BABYLON.MeshBuilder.CreateTorus(
+          `wCrown_${id}`,
+          { diameter: 1.15, thickness: 0.14, tessellation: 16 },
+          this.scene,
+        );
+        crown.position.y = 0.55;
+        crown.material = this.eyeGoldMat;
+        crown.parent = headMesh;
+      }
 
       const armL = this.buildArticulatedArm(
         `armL_${id}`,
-        0.38,
-        2.3,
+        0.38 * scale,
+        2.3 * scale,
         this.bruteHideMat,
         this.darkPlateMat,
         root,
-        -1.55,
-        4.0,
+        -1.55 * scale,
+        4.0 * scale,
         0.1,
         "shield_heavy",
       );
+      shieldMesh = armL.shieldMesh;
       const armR = this.buildArticulatedArm(
         `armR_${id}`,
-        0.38,
-        2.3,
+        0.38 * scale,
+        2.3 * scale,
         this.bruteHideMat,
         this.darkPlateMat,
         root,
-        1.55,
-        4.0,
+        1.55 * scale,
+        4.0 * scale,
         0.1,
         "warhammer",
       );
       const legL = this.buildArticulatedLeg(
         `legL_${id}`,
-        0.44,
-        2.0,
+        0.44 * scale,
+        2.0 * scale,
         this.leatherMat,
         this.darkPlateMat,
         root,
-        -0.65,
-        1.75,
+        -0.65 * scale,
+        1.75 * scale,
         0,
       );
       const legR = this.buildArticulatedLeg(
         `legR_${id}`,
-        0.44,
-        2.0,
+        0.44 * scale,
+        2.0 * scale,
         this.leatherMat,
         this.darkPlateMat,
         root,
-        0.65,
-        1.75,
+        0.65 * scale,
+        1.75 * scale,
         0,
       );
-      limbs.push(armL, armR, legL, legR);
+      limbs.push(armL.shoulder, armR.shoulder, legL, legR);
     } else if (type === "banshee") {
-      // 3. NAZGUL-STYLE HOODED BARROW-WRAITH (Dark tattered spectral robes, glowing inner ribcage, war-scythe)
-      hp = 75;
-      speed = 9.6;
-      gold = 28;
-      damage = 25;
+      // 3. NAZGUL-STYLE HOODED BARROW-WRAITH NECROMANCER
+      hp = 78;
+      speed = 9.5;
+      gold = 30;
+      damage = 26;
       radius = 1.5;
       headRadius = 0.85;
       badgeHeight = 4.6;
 
-      // Dark Billowing Outer Shroud
       const outerRobe = BABYLON.MeshBuilder.CreateCylinder(
         `outerRobe_${id}`,
         { diameterTop: 0.75, diameterBottom: 1.95, height: 3.2, tessellation: 16 },
@@ -362,7 +434,6 @@ export class BabylonZombieHorde {
       outerRobe.material = this.wraithCloakMat;
       outerRobe.parent = root;
 
-      // Glowing Ethereal Spine Core inside the robe
       const core = BABYLON.MeshBuilder.CreateCapsule(
         `wraithCore_${id}`,
         { radius: 0.28, height: 2.1, tessellation: 12 },
@@ -376,7 +447,6 @@ export class BabylonZombieHorde {
       headMesh.position.set(0, 3.65, 0.12);
       headMesh.parent = root;
 
-      // Pointed Dark Cowl / Hood over the Wraith Skull
       const hood = BABYLON.MeshBuilder.CreateCylinder(
         `hood_${id}`,
         { diameterTop: 0.12, diameterBottom: 1.15, height: 1.1, tessellation: 12 },
@@ -411,16 +481,18 @@ export class BabylonZombieHorde {
         0.2,
         "scythe",
       );
-      limbs.push(armL, armR);
+      limbs.push(armL.shoulder, armR.shoulder);
     } else {
-      // 4. ARMORED UNDEAD FOOTMAN / SHAMBLER (Chainmail, dark steel breastplate, kettle helm, sword & shield)
-      hp = 68;
+      // 4. ARMORED UNDEAD FOOTMAN / SHAMBLER (Shield Phalanx Infantry)
+      hp = 72;
       speed = 6.8;
-      gold = 16;
+      gold = 18;
       damage = 18;
       radius = 1.5;
       headRadius = 0.85;
       badgeHeight = 4.2;
+      hasShield = true;
+      shieldHp = 42;
 
       const waist = BABYLON.MeshBuilder.CreateCylinder(
         `waist_${id}`,
@@ -469,6 +541,7 @@ export class BabylonZombieHorde {
         0.08,
         "shield",
       );
+      shieldMesh = armL.shieldMesh;
       const armR = this.buildArticulatedArm(
         `armR_${id}`,
         0.2,
@@ -503,20 +576,40 @@ export class BabylonZombieHorde {
         1.3,
         0,
       );
-      limbs.push(armL, armR, legL, legR);
+      limbs.push(armL.shoulder, armR.shoulder, legL, legR);
     }
 
-    // Register all meshes of this zombie as shadow casters so they cast crisp moonlit shadows on the road!
     if (this.shadowGenerator) {
       for (const m of root.getChildMeshes()) {
         this.shadowGenerator.addShadowCaster(m);
       }
     }
 
-    // Sleek, Low-Profile Tactical Health Bar (subtle when full, bright when damaged)
+    // Status Effect Auras (Hidden until Ignited or Frosted)
+    const burnAuraMesh = BABYLON.MeshBuilder.CreateCylinder(
+      `burnAura_${id}`,
+      { diameterTop: 0.2, diameterBottom: radius * 1.15, height: 2.8, tessellation: 10 },
+      this.scene,
+    );
+    burnAuraMesh.position.set(0, 2.0, 0);
+    burnAuraMesh.material = this.burnAuraMat;
+    burnAuraMesh.visibility = 0;
+    burnAuraMesh.parent = root;
+
+    const frostAuraMesh = BABYLON.MeshBuilder.CreateTorus(
+      `frostAura_${id}`,
+      { diameter: radius * 1.45, thickness: 0.14, tessellation: 16 },
+      this.scene,
+    );
+    frostAuraMesh.position.set(0, 0.25, 0);
+    frostAuraMesh.material = this.frostAuraMat;
+    frostAuraMesh.visibility = 0;
+    frostAuraMesh.parent = root;
+
+    // Tactical Health Bar
     const hpBg = BABYLON.MeshBuilder.CreatePlane(
       `hpBg_${id}`,
-      { width: 1.5, height: 0.15 },
+      { width: type === "warlord" ? 2.4 : 1.5, height: type === "warlord" ? 0.22 : 0.15 },
       this.scene,
     );
     hpBg.position.set(0, badgeHeight, 0);
@@ -530,7 +623,7 @@ export class BabylonZombieHorde {
 
     const hpBarFill = BABYLON.MeshBuilder.CreatePlane(
       `hpFill_${id}`,
-      { width: 1.42, height: 0.1 },
+      { width: type === "warlord" ? 2.3 : 1.42, height: type === "warlord" ? 0.15 : 0.1 },
       this.scene,
     );
     hpBarFill.position.set(0, 0, -0.02);
@@ -546,6 +639,9 @@ export class BabylonZombieHorde {
       root,
       headMesh,
       limbs,
+      shieldMesh,
+      burnAuraMesh,
+      frostAuraMesh,
       hpBarBg: hpBg,
       hpBarFill,
       hpBarMat,
@@ -556,10 +652,19 @@ export class BabylonZombieHorde {
       maxHp: hp,
       gold,
       damage,
+      hasShield,
+      shieldHp,
+      burnTimer: 0,
+      burnDps: 0,
+      frostTimer: 0,
+      staggerTimer: 0,
+      ritualTimer: 3.5 + Math.random() * 3.0,
+      dyingTimer: 0,
       attackTimer: 0,
       walkTimer: Math.random() * 10,
       isAttackingGate: false,
       dead: false,
+      collapseProcessed: false,
       radius,
       headRadius,
     };
@@ -575,7 +680,6 @@ export class BabylonZombieHorde {
     eyeMat: BABYLON.StandardMaterial,
     withHelmet: boolean,
   ): BABYLON.Mesh {
-    // Cranium
     const cranium = BABYLON.MeshBuilder.CreateSphere(
       `head_${id}`,
       { diameterX: 0.78 * scale, diameterY: 0.85 * scale, diameterZ: 0.92 * scale, segments: 12 },
@@ -583,7 +687,6 @@ export class BabylonZombieHorde {
     );
     cranium.material = skullMat;
 
-    // Lower Jaw / Mandible
     const jaw = BABYLON.MeshBuilder.CreateCylinder(
       `jaw_${id}`,
       {
@@ -598,7 +701,6 @@ export class BabylonZombieHorde {
     jaw.material = skullMat;
     jaw.parent = cranium;
 
-    // Protruding Brow Ridge
     const brow = BABYLON.MeshBuilder.CreateBox(
       `brow_${id}`,
       { width: 0.68 * scale, height: 0.12 * scale, depth: 0.25 * scale },
@@ -608,7 +710,6 @@ export class BabylonZombieHorde {
     brow.material = skullMat;
     brow.parent = cranium;
 
-    // Recessed Dark Eye Sockets + Small Pinpoint Glowing Pupils
     for (const side of [-1, 1]) {
       const socket = BABYLON.MeshBuilder.CreateSphere(
         `socket_${id}_${side}`,
@@ -630,7 +731,6 @@ export class BabylonZombieHorde {
     }
 
     if (withHelmet) {
-      // Forged Iron War-Helm with Nasal Bar & Cheek Guards
       const helmDome = BABYLON.MeshBuilder.CreateSphere(
         `helmDome_${id}`,
         {
@@ -656,7 +756,6 @@ export class BabylonZombieHorde {
       nasalBar.parent = cranium;
 
       if (scale > 1.05) {
-        // Curved Siege Horns on Brute Helmet
         for (const side of [-1, 1]) {
           const horn = BABYLON.MeshBuilder.CreateCylinder(
             `horn_${id}_${side}`,
@@ -691,7 +790,7 @@ export class BabylonZombieHorde {
     y: number,
     z: number,
     weapon: "sword" | "shield" | "shield_heavy" | "cleaver" | "warhammer" | "scythe" | "none",
-  ): BABYLON.TransformNode {
+  ): { shoulder: BABYLON.TransformNode; shieldMesh?: BABYLON.Mesh } {
     const shoulder = new BABYLON.TransformNode(`${name}_shoulder`, this.scene);
     shoulder.position.set(x, y, z);
     shoulder.parent = parent;
@@ -714,9 +813,11 @@ export class BabylonZombieHorde {
       this.scene,
     );
     forearm.position.set(0, -upperLen * 0.82, lowerLen * 0.28);
-    forearm.rotation.x = 0.65; // Natural elbow bend forward
+    forearm.rotation.x = 0.65;
     forearm.material = lowerMat;
     forearm.parent = shoulder;
+
+    let shieldMesh: BABYLON.Mesh | undefined;
 
     if (weapon === "sword" || weapon === "cleaver") {
       const bladeLen = weapon === "sword" ? 1.55 : 1.1;
@@ -739,7 +840,7 @@ export class BabylonZombieHorde {
       crossguard.material = this.rustedMailMat;
       crossguard.parent = forearm;
     } else if (weapon === "shield" || weapon === "shield_heavy") {
-      const sz = weapon === "shield_heavy" ? 1.85 : 1.25;
+      const sz = weapon === "shield_heavy" ? 1.85 : 1.3;
       const shield = BABYLON.MeshBuilder.CreateCylinder(
         `${name}_shield`,
         { diameter: sz, height: 0.12, tessellation: 16 },
@@ -750,6 +851,7 @@ export class BabylonZombieHorde {
       shield.position.set(-0.22, -0.15, 0.25);
       shield.material = weapon === "shield_heavy" ? this.darkPlateMat : this.woodShieldMat;
       shield.parent = forearm;
+      shieldMesh = shield;
 
       const boss = BABYLON.MeshBuilder.CreateSphere(
         `${name}_boss`,
@@ -800,7 +902,7 @@ export class BabylonZombieHorde {
       scytheBlade.parent = pole;
     }
 
-    return shoulder;
+    return { shoulder, shieldMesh };
   }
 
   private buildArticulatedLeg(
@@ -841,21 +943,93 @@ export class BabylonZombieHorde {
     return hip;
   }
 
-  public update(dt: number, onGateAttack: (dmg: number) => void) {
+  public update(
+    dt: number,
+    onGateAttack: (dmg: number) => void,
+    onBurnDeath?: (z: BabylonZombie) => void,
+    onNecroPulse?: (pos: BABYLON.Vector3) => void,
+  ) {
     for (let i = this.zombies.length - 1; i >= 0; i--) {
       const z = this.zombies[i];
-      if (z.dead) continue;
 
-      z.walkTimer += dt * (z.speed * 0.85);
+      // Handle dramatic death collapse animation before removal
+      if (z.dead) {
+        z.dyingTimer += dt;
+        z.hpBarBg.visibility = 0;
+        z.hpBarFill.visibility = 0;
+        z.root.rotation.x = -Math.min(Math.PI / 2, z.dyingTimer * 4.2);
+        z.root.position.y = Math.max(-0.4, -z.dyingTimer * 1.2);
+        if (z.dyingTimer >= 0.42) {
+          this.removeZombie(z);
+        }
+        continue;
+      }
 
-      // Update tactical health bar fill & visibility
+      // 1. Burn DoT & Aura
+      if (z.burnTimer > 0) {
+        z.burnTimer -= dt;
+        z.hp -= z.burnDps * dt;
+        if (z.burnAuraMesh) {
+          z.burnAuraMesh.visibility = 0.65 + Math.sin(performance.now() * 0.025) * 0.2;
+        }
+        if (z.hp <= 0) {
+          z.dead = true;
+          onBurnDeath?.(z);
+          continue;
+        }
+      } else if (z.burnAuraMesh) {
+        z.burnAuraMesh.visibility = 0;
+      }
+
+      // 2. Frost Slow & Aura
+      let speedMul = 1.0;
+      if (z.frostTimer > 0) {
+        z.frostTimer -= dt;
+        speedMul = 0.45;
+        if (z.frostAuraMesh) {
+          z.frostAuraMesh.visibility = 0.78;
+          z.frostAuraMesh.rotation.y += dt * 2.5;
+        }
+      } else if (z.frostAuraMesh) {
+        z.frostAuraMesh.visibility = 0;
+      }
+
+      // 3. Hit Stagger recovery
+      if (z.staggerTimer > 0) {
+        z.staggerTimer -= dt;
+        speedMul *= 0.25;
+        z.root.rotation.x = -0.28 * (z.staggerTimer / 0.22);
+      } else {
+        z.root.rotation.x = 0;
+      }
+
+      // 4. Necromancer Barrow-Wraith Ritual Pulse (heals & hastens nearby undead)
+      if (z.type === "banshee") {
+        z.ritualTimer -= dt;
+        if (z.ritualTimer <= 0) {
+          z.ritualTimer = 6.5;
+          onNecroPulse?.(z.pos.clone());
+          for (const ally of this.zombies) {
+            if (!ally.dead && BABYLON.Vector3.Distance(z.pos, ally.pos) <= 11.0) {
+              ally.hp = Math.min(ally.maxHp, ally.hp + 22);
+            }
+          }
+        }
+      }
+
+      const effectiveSpeed = z.speed * speedMul;
+      z.walkTimer += dt * (effectiveSpeed * 0.85);
+
+      // Update tactical health bar
       const pct = Math.max(0.01, z.hp / z.maxHp);
       z.hpBarFill.scaling.x = pct;
-      const isDamaged = pct < 0.99;
-      z.hpBarBg.visibility = isDamaged ? 0.9 : 0.35;
-      z.hpBarFill.visibility = isDamaged ? 0.95 : 0.45;
+      const isDamaged = pct < 0.99 || z.type === "warlord";
+      z.hpBarBg.visibility = isDamaged ? 0.92 : 0.35;
+      z.hpBarFill.visibility = isDamaged ? 0.98 : 0.45;
 
-      if (pct > 0.55) {
+      if (z.type === "warlord") {
+        z.hpBarMat.emissiveColor.set(0.95, 0.25, 0.85);
+      } else if (pct > 0.55) {
         z.hpBarMat.emissiveColor.set(0.25, 0.78, 0.32);
       } else if (pct > 0.25) {
         z.hpBarMat.emissiveColor.set(0.92, 0.62, 0.12);
@@ -870,7 +1044,7 @@ export class BabylonZombieHorde {
         z.attackTimer += dt;
         if (z.limbs.length >= 2) {
           z.limbs[0].rotation.x = -0.5 + Math.sin(z.attackTimer * 7) * 0.55;
-          z.limbs[1].rotation.x = -0.7 + Math.cos(z.attackTimer * 7) * 0.85;
+          z.limbs[1].rotation.x = -0.85 + Math.cos(z.attackTimer * 7) * 0.95;
         }
         if (z.attackTimer >= 1.2) {
           z.attackTimer = 0;
@@ -883,8 +1057,8 @@ export class BabylonZombieHorde {
         const nx = dx / len;
         const nz = dz / len;
 
-        z.pos.x += nx * z.speed * dt;
-        z.pos.z += nz * z.speed * dt;
+        z.pos.x += nx * effectiveSpeed * dt;
+        z.pos.z += nz * effectiveSpeed * dt;
 
         // Lateral crowd separation
         for (let j = 0; j < this.zombies.length; j++) {
@@ -906,12 +1080,11 @@ export class BabylonZombieHorde {
         z.root.position.copyFrom(z.pos);
         z.root.rotation.y = Math.atan2(nx, nz);
 
-        // Realistic heavy stride animation with shoulder & hip counter-rotation
         const swing = Math.sin(z.walkTimer) * 0.58;
         z.root.position.y = Math.abs(Math.cos(z.walkTimer)) * 0.14;
-        z.root.rotation.z = Math.sin(z.walkTimer) * 0.04; // Subtle weight transfer sway
+        z.root.rotation.z = Math.sin(z.walkTimer) * 0.04;
         if (z.limbs.length >= 4) {
-          z.limbs[0].rotation.x = swing * 0.7 - 0.25;
+          z.limbs[0].rotation.x = z.hasShield ? -0.55 : swing * 0.7 - 0.25;
           z.limbs[1].rotation.x = -swing * 0.7 - 0.35;
           z.limbs[2].rotation.x = -swing;
           z.limbs[3].rotation.x = swing;

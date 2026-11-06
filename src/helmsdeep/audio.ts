@@ -5,7 +5,9 @@ export class HelmsAudio {
   private getContext(): AudioContext | null {
     if (this.muted) return null;
     if (!this.ctx && typeof window !== "undefined") {
-      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (AudioCtx) {
         this.ctx = new AudioCtx();
       }
@@ -34,39 +36,52 @@ export class HelmsAudio {
     return this.muted;
   }
 
-  // Player Bow / Ballista Shot
+  // Player Windlass Crossbow / Ballista Shot
   public playShoot(powerRatio = 1) {
     const ctx = this.getContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // Bowstring twang
+    // Heavy steel prod snap + bowstring twang
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(140 + powerRatio * 80, now);
-    osc.frequency.exponentialRampToValueAtTime(45, now + 0.12);
+    osc.frequency.setValueAtTime(165 + powerRatio * 90, now);
+    osc.frequency.exponentialRampToValueAtTime(48, now + 0.14);
 
-    gain.gain.setValueAtTime(0.4, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+    gain.gain.setValueAtTime(0.42, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.15);
+    osc.stop(now + 0.16);
 
-    // Whoosh noise
-    const noise = this.createNoiseBuffer(ctx, 0.08);
+    // Mechanical nut click
+    const clickOsc = ctx.createOscillator();
+    const clickGain = ctx.createGain();
+    clickOsc.type = "square";
+    clickOsc.frequency.setValueAtTime(980, now);
+    clickOsc.frequency.exponentialRampToValueAtTime(320, now + 0.025);
+    clickGain.gain.setValueAtTime(0.18, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+    clickOsc.connect(clickGain);
+    clickGain.connect(ctx.destination);
+    clickOsc.start(now);
+    clickOsc.stop(now + 0.035);
+
+    // Bolt air-whistle noise
+    const noise = this.createNoiseBuffer(ctx, 0.09);
     const nSource = ctx.createBufferSource();
     nSource.buffer = noise;
     const nFilter = ctx.createBiquadFilter();
     nFilter.type = "bandpass";
-    nFilter.frequency.setValueAtTime(1800, now);
-    nFilter.Q.setValueAtTime(2.0, now);
+    nFilter.frequency.setValueAtTime(2100, now);
+    nFilter.Q.setValueAtTime(2.2, now);
 
     const nGain = ctx.createGain();
-    nGain.gain.setValueAtTime(0.3, now);
-    nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+    nGain.gain.setValueAtTime(0.32, now);
+    nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
 
     nSource.connect(nFilter);
     nFilter.connect(nGain);
@@ -83,10 +98,10 @@ export class HelmsAudio {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(220, now);
-    osc.frequency.exponentialRampToValueAtTime(70, now + 0.09);
+    osc.frequency.setValueAtTime(240, now);
+    osc.frequency.exponentialRampToValueAtTime(65, now + 0.09);
 
-    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.setValueAtTime(0.38, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
 
     osc.connect(gain);
@@ -95,19 +110,61 @@ export class HelmsAudio {
     osc.stop(now + 0.1);
   }
 
-  // Headshot "CRITICAL DING" - instant dopamine hit
+  // Metallic Shield Ricochet Clang
+  public playShieldClang() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const freqs = [620, 940, 1480];
+    for (const f of freqs) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "triangle";
+      osc.frequency.setValueAtTime(f, now);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.85, now + 0.18);
+      gain.gain.setValueAtTime(0.18, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.22);
+    }
+  }
+
+  // Shield Shatter / Wood & Iron Break
+  public playShieldBreak() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const noise = this.createNoiseBuffer(ctx, 0.28);
+    const nSource = ctx.createBufferSource();
+    nSource.buffer = noise;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(750, now);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    nSource.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    nSource.start(now);
+  }
+
+  // Headshot "CRITICAL CRUNCH + BELL"
   public playHeadshot() {
     const ctx = this.getContext();
     if (!ctx) return;
     const now = ctx.currentTime;
 
-    // High crystalline metallic bell
     const osc1 = ctx.createOscillator();
     const osc2 = ctx.createOscillator();
     const gain = ctx.createGain();
 
     osc1.type = "sine";
-    osc2.type = "sine";
+    osc2.type = "triangle";
     osc1.frequency.setValueAtTime(1760, now); // A6
     osc2.frequency.setValueAtTime(2640, now); // E7
 
@@ -124,7 +181,95 @@ export class HelmsAudio {
     osc2.stop(now + 0.46);
   }
 
-  // Explosion / Mortar Blast
+  // Frost Shatter
+  public playFrostShatter() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const freqs = [2100, 2850, 3400];
+    freqs.forEach((f, idx) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(f, now + idx * 0.02);
+      osc.frequency.exponentialRampToValueAtTime(f * 0.6, now + 0.22);
+      gain.gain.setValueAtTime(0.22, now + idx * 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + idx * 0.02);
+      osc.stop(now + 0.25);
+    });
+  }
+
+  // Ammo Switch Ratchet Click
+  public playAmmoSwitch() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(520, now);
+    osc.frequency.setValueAtTime(780, now + 0.04);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.11);
+  }
+
+  // Elven Archer Volley Whistle
+  public playArcherVolley() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    for (let i = 0; i < 5; i++) {
+      const delay = i * 0.055;
+      const noise = this.createNoiseBuffer(ctx, 0.18);
+      const src = ctx.createBufferSource();
+      src.buffer = noise;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "bandpass";
+      filter.frequency.setValueAtTime(1600 + i * 220, now + delay);
+      filter.frequency.exponentialRampToValueAtTime(650, now + delay + 0.18);
+      const gain = ctx.createGain();
+      gain.gain.setValueAtTime(0.22, now + delay);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + delay + 0.18);
+      src.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      src.start(now + delay);
+    }
+  }
+
+  // Rolling Storm Thunderclap
+  public playThunder() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    const noise = this.createNoiseBuffer(ctx, 1.8);
+    const nSource = ctx.createBufferSource();
+    nSource.buffer = noise;
+    const nFilter = ctx.createBiquadFilter();
+    nFilter.type = "lowpass";
+    nFilter.frequency.setValueAtTime(260, now);
+    nFilter.frequency.exponentialRampToValueAtTime(45, now + 1.7);
+
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(0.01, now);
+    nGain.gain.linearRampToValueAtTime(0.45, now + 0.08);
+    nGain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
+
+    nSource.connect(nFilter);
+    nFilter.connect(nGain);
+    nGain.connect(ctx.destination);
+    nSource.start(now);
+  }
+
+  // Explosion / Mortar / Powder Cask Blast
   public playExplosion() {
     const ctx = this.getContext();
     if (!ctx) return;
@@ -134,29 +279,29 @@ export class HelmsAudio {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.setValueAtTime(130, now);
-    osc.frequency.exponentialRampToValueAtTime(25, now + 0.6);
+    osc.frequency.setValueAtTime(140, now);
+    osc.frequency.exponentialRampToValueAtTime(24, now + 0.65);
 
-    gain.gain.setValueAtTime(0.7, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.65);
+    gain.gain.setValueAtTime(0.75, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 0.7);
+    osc.stop(now + 0.72);
 
     // Rumble noise
-    const noise = this.createNoiseBuffer(ctx, 0.55);
+    const noise = this.createNoiseBuffer(ctx, 0.6);
     const nSource = ctx.createBufferSource();
     nSource.buffer = noise;
     const nFilter = ctx.createBiquadFilter();
     nFilter.type = "lowpass";
-    nFilter.frequency.setValueAtTime(380, now);
-    nFilter.frequency.exponentialRampToValueAtTime(60, now + 0.5);
+    nFilter.frequency.setValueAtTime(420, now);
+    nFilter.frequency.exponentialRampToValueAtTime(55, now + 0.55);
 
     const nGain = ctx.createGain();
-    nGain.gain.setValueAtTime(0.65, now);
-    nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+    nGain.gain.setValueAtTime(0.68, now);
+    nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
 
     nSource.connect(nFilter);
     nFilter.connect(nGain);
@@ -173,10 +318,10 @@ export class HelmsAudio {
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "triangle";
-    osc.frequency.setValueAtTime(90, now);
-    osc.frequency.exponentialRampToValueAtTime(30, now + 0.35);
+    osc.frequency.setValueAtTime(95, now);
+    osc.frequency.exponentialRampToValueAtTime(28, now + 0.35);
 
-    gain.gain.setValueAtTime(0.5, now);
+    gain.gain.setValueAtTime(0.52, now);
     gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
 
     osc.connect(gain);
