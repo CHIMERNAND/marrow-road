@@ -83,7 +83,7 @@ export class BabylonHelmsEngine {
 
     this.audio = new HelmsAudio();
     this.world = new BabylonHelmsWorld(this.scene);
-    this.horde = new BabylonZombieHorde(this.scene);
+    this.horde = new BabylonZombieHorde(this.scene, this.world.shadowGenerator);
     this.player = new BabylonHelmsPlayer(this.scene);
     this.turrets = new BabylonTurretManager(this.scene);
     this.vfx = new BabylonHelmsVFX(this.scene);

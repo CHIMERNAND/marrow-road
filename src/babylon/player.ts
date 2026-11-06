@@ -64,77 +64,110 @@ export class BabylonHelmsPlayer {
     const root = new BABYLON.TransformNode("crossbowRoot", this.scene);
 
     const woodMat = new BABYLON.StandardMaterial("cbWoodMat", this.scene);
-    woodMat.diffuseColor = new BABYLON.Color3(0.36, 0.22, 0.11);
-    woodMat.specularColor = new BABYLON.Color3(0.12, 0.08, 0.05);
+    woodMat.diffuseColor = new BABYLON.Color3(0.24, 0.14, 0.08);
+    woodMat.specularColor = new BABYLON.Color3(0.15, 0.1, 0.06);
+    woodMat.specularPower = 24;
 
     const steelMat = new BABYLON.StandardMaterial("cbSteelMat", this.scene);
-    steelMat.diffuseColor = new BABYLON.Color3(0.28, 0.32, 0.38);
-    steelMat.specularColor = new BABYLON.Color3(0.65, 0.7, 0.78);
+    steelMat.diffuseColor = new BABYLON.Color3(0.2, 0.23, 0.27);
+    steelMat.specularColor = new BABYLON.Color3(0.75, 0.8, 0.88);
+    steelMat.specularPower = 64;
 
     const goldMat = new BABYLON.StandardMaterial("cbGoldMat", this.scene);
-    goldMat.diffuseColor = new BABYLON.Color3(0.78, 0.58, 0.16);
+    goldMat.diffuseColor = new BABYLON.Color3(0.58, 0.44, 0.15);
     goldMat.specularColor = new BABYLON.Color3(0.85, 0.7, 0.3);
+    goldMat.specularPower = 48;
 
     const stringMat = new BABYLON.StandardMaterial("cbStringMat", this.scene);
-    stringMat.diffuseColor = new BABYLON.Color3(0.42, 0.38, 0.32);
+    stringMat.diffuseColor = new BABYLON.Color3(0.32, 0.28, 0.22);
 
-    // Sleek Rounded Crossbow Tiller (Lower-Right of view, compact & non-obstructive)
-    const tiller = BABYLON.MeshBuilder.CreateCapsule(
-      "cbTiller",
-      { radius: 0.028, height: 0.52, tessellation: 12 },
+    // Carved Dark Walnut Arbalest Stock (Tucked neatly in lower-right)
+    const stock = BABYLON.MeshBuilder.CreateBox(
+      "cbStock",
+      { width: 0.048, height: 0.062, depth: 0.56 },
       this.scene,
     );
-    tiller.rotation.x = Math.PI / 2;
-    tiller.position.set(0.36, -0.32, -0.58);
-    tiller.material = woodMat;
-    tiller.parent = root;
+    stock.position.set(0.34, -0.31, -0.58);
+    stock.material = woodMat;
+    stock.parent = root;
 
-    // Brass Trigger Housing
-    const housing = BABYLON.MeshBuilder.CreateCylinder(
+    // Steel Flight Groove Rail on top of Stock
+    const rail = BABYLON.MeshBuilder.CreateBox(
+      "cbRail",
+      { width: 0.024, height: 0.012, depth: 0.52 },
+      this.scene,
+    );
+    rail.position.set(0.34, -0.275, -0.6);
+    rail.material = steelMat;
+    rail.parent = root;
+
+    // Brass Nut & Trigger Lock Housing
+    const housing = BABYLON.MeshBuilder.CreateBox(
       "cbHousing",
-      { diameter: 0.068, height: 0.14, tessellation: 12 },
+      { width: 0.058, height: 0.068, depth: 0.12 },
       this.scene,
     );
-    housing.rotation.x = Math.PI / 2;
-    housing.position.set(0.36, -0.3, -0.55);
+    housing.position.set(0.34, -0.305, -0.52);
     housing.material = goldMat;
     housing.parent = root;
 
-    // Curved Steel Bow Limbs (Swept Horizontal Arcs)
+    // Heavy Forged-Steel Bow Prod (Swept Horizontal Limbs)
     for (const side of [-1, 1]) {
-      const limb = BABYLON.MeshBuilder.CreateCapsule(
+      const limb = BABYLON.MeshBuilder.CreateBox(
         `cbLimb_${side}`,
-        { radius: 0.014, height: 0.26, tessellation: 10 },
+        { width: 0.26, height: 0.022, depth: 0.036 },
         this.scene,
       );
-      limb.rotation.z = Math.PI / 2;
-      limb.rotation.y = side * -0.32;
-      limb.position.set(0.36 + side * 0.12, -0.3, -0.78);
+      limb.rotation.y = side * -0.28;
+      limb.position.set(0.34 + side * 0.13, -0.285, -0.82);
       limb.material = steelMat;
       limb.parent = root;
     }
 
-    // Bowstring
-    const bowstring = BABYLON.MeshBuilder.CreateCylinder(
-      "cbString",
-      { diameter: 0.005, height: 0.42, tessellation: 6 },
+    // Iron Binding Bridle securing the Prod to the Stock
+    const bridle = BABYLON.MeshBuilder.CreateBox(
+      "cbBridle",
+      { width: 0.072, height: 0.076, depth: 0.055 },
       this.scene,
     );
-    bowstring.rotation.z = Math.PI / 2;
-    bowstring.position.set(0.36, -0.3, -0.7);
-    bowstring.material = stringMat;
-    bowstring.parent = root;
+    bridle.position.set(0.34, -0.295, -0.84);
+    bridle.material = goldMat;
+    bridle.parent = root;
 
-    // Loaded Glowing Siege Bolt
-    const bolt = BABYLON.MeshBuilder.CreateCylinder(
-      "cbLoadedBolt",
-      { diameterTop: 0.004, diameterBottom: 0.016, height: 0.42, tessellation: 8 },
+    // Braided Hemp Bowstring
+    for (const side of [-1, 1]) {
+      const halfString = BABYLON.MeshBuilder.CreateCylinder(
+        `cbString_${side}`,
+        { diameter: 0.005, height: 0.26, tessellation: 6 },
+        this.scene,
+      );
+      halfString.rotation.z = Math.PI / 2;
+      halfString.rotation.y = side * 0.52;
+      halfString.position.set(0.34 + side * 0.11, -0.28, -0.71);
+      halfString.material = stringMat;
+      halfString.parent = root;
+    }
+
+    // Wooden Quarrel Bolt Shaft + Forged Bodkin Broadhead Tip
+    const shaft = BABYLON.MeshBuilder.CreateCylinder(
+      "cbBoltShaft",
+      { diameter: 0.012, height: 0.4, tessellation: 8 },
       this.scene,
     );
-    bolt.rotation.x = -Math.PI / 2;
-    bolt.position.set(0.36, -0.28, -0.72);
-    bolt.material = this.boltMat;
-    bolt.parent = root;
+    shaft.rotation.x = Math.PI / 2;
+    shaft.position.set(0.34, -0.26, -0.68);
+    shaft.material = woodMat;
+    shaft.parent = root;
+
+    const broadhead = BABYLON.MeshBuilder.CreateCylinder(
+      "cbBroadhead",
+      { diameterTop: 0.002, diameterBottom: 0.026, height: 0.09, tessellation: 4 },
+      this.scene,
+    );
+    broadhead.rotation.x = -Math.PI / 2;
+    broadhead.position.set(0.34, -0.26, -0.91);
+    broadhead.material = this.boltMat;
+    broadhead.parent = root;
 
     return root;
   }
