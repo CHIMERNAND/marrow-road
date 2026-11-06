@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { MarrowRoad } from "@/components/MarrowRoad";
+import { HelmsDeepGame } from "@/components/HelmsDeepGame";
 
 export const Route = createFileRoute("/")({
   component: Home,
 });
 
 function Home() {
-  return <MarrowRoad />;
+  return <HelmsDeepGame />;
 }

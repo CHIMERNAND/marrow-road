@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { Coins, Heart, Volume2, VolumeX } from "lucide-react";
-import { loadArt } from "@/game/assets";
+import { Coins, Heart, Volume2, VolumeX, RotateCcw, ZoomIn, ZoomOut, Compass } from "lucide-react";
 import { EARLY_BONUS, TOWER_LIST, TOWERS } from "@/game/data";
-import { createGame, type Game, type Hud } from "@/game/engine";
+import { createGame3D, type Game3D } from "@/game/engine3d";
+import type { Hud } from "@/game/engine";
+
+type Game3DInstance = Game3D;
 
 const EMPTY: Hud = {
   phase: "title",
@@ -27,7 +29,7 @@ const EMPTY: Hud = {
 
 export function MarrowRoad() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameRef = useRef<Game | null>(null);
+  const gameRef = useRef<Game3DInstance | null>(null);
   const hudRef = useRef<Hud>(EMPTY);
   const [hud, setHud] = useState<Hud>(EMPTY);
   const [ready, setReady] = useState(false);
@@ -39,22 +41,21 @@ export function MarrowRoad() {
     if (!canvas) return;
     let dead = false;
     let raf = 0;
-    let game: Game | null = null;
-    loadArt()
-      .then((art) => {
-        if (dead) return;
-        game = createGame(canvas, art, setHud);
-        gameRef.current = game;
-        const loop = (t: number) => {
-          game?.frame(t);
-          raf = requestAnimationFrame(loop);
-        };
+    let game: Game3DInstance | null = null;
+
+    try {
+      game = createGame3D(canvas, setHud);
+      gameRef.current = game;
+      const loop = (t: number) => {
+        game?.frame(t);
         raf = requestAnimationFrame(loop);
-        setReady(true);
-      })
-      .catch((err: unknown) => {
-        if (!dead) setError(err instanceof Error ? err.message : "The lane wouldn't load");
-      });
+      };
+      raf = requestAnimationFrame(loop);
+      setReady(true);
+    } catch (err: unknown) {
+      if (!dead) setError(err instanceof Error ? err.message : "The 3D graveyard failed to initialize");
+    }
+
     return () => {
       dead = true;
       cancelAnimationFrame(raf);
@@ -79,6 +80,12 @@ export function MarrowRoad() {
       else if (e.code === "Digit4") game.arm("dirge");
       else if (e.code === "Escape") game.clear();
       else if (e.code === "KeyR" && (phase === "victory" || phase === "defeat")) game.restart();
+      else if (e.code === "KeyW" || e.code === "ArrowUp") game.pan(0, -1.2);
+      else if (e.code === "KeyS" || e.code === "ArrowDown") game.pan(0, 1.2);
+      else if (e.code === "KeyA" || e.code === "ArrowLeft") game.pan(-1.2, 0);
+      else if (e.code === "KeyD" || e.code === "ArrowRight") game.pan(1.2, 0);
+      else if (e.code === "KeyQ") game.rotate(-0.15, 0);
+      else if (e.code === "KeyE") game.rotate(0.15, 0);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -106,7 +113,12 @@ export function MarrowRoad() {
             <span>{hud.boss ? "Boss" : "Wave"}</span>
           </div>
           <div className="hud-actions">
-            <button type="button" className="btn btn-icon" onClick={() => gameRef.current?.toggleSpeed()} aria-label="Toggle speed">
+            <button
+              type="button"
+              className="btn btn-icon"
+              onClick={() => gameRef.current?.toggleSpeed()}
+              aria-label="Toggle speed"
+            >
               {hud.speed}×
             </button>
             <button
@@ -131,6 +143,7 @@ export function MarrowRoad() {
             </button>
           </div>
         </header>
+
         <p className="sr-only" aria-live="polite">
           {hud.phase === "prep"
             ? `Preparation. ${hud.preview}. ${Math.ceil(hud.prepLeft)} seconds.`
@@ -140,20 +153,68 @@ export function MarrowRoad() {
                 ? "Victory. The chapel holds."
                 : hud.phase === "defeat"
                   ? "Defeat. The dead reached the chapel."
-                  : "Marrow Road. Begin the watch."}
+                  : "Marrow Road 3D. Begin the watch."}
         </p>
+
         <div className="stage">
           <canvas
             ref={canvasRef}
-            aria-label="Graveyard lane"
+            aria-label="3D Graveyard lane"
             onPointerDown={(e) => {
               canvasRef.current?.setPointerCapture(e.pointerId);
-              gameRef.current?.pointer(e.clientX, e.clientY, "down");
+              gameRef.current?.pointer(e.clientX, e.clientY, "down", e.button);
             }}
-            onPointerMove={(e) => gameRef.current?.pointer(e.clientX, e.clientY, "move")}
+            onPointerMove={(e) => gameRef.current?.pointer(e.clientX, e.clientY, "move", e.button)}
+            onPointerUp={(e) => {
+              try {
+                canvasRef.current?.releasePointerCapture(e.pointerId);
+              } catch {}
+              gameRef.current?.pointer(e.clientX, e.clientY, "up", e.button);
+            }}
             onPointerLeave={() => gameRef.current?.pointer(0, 0, "leave")}
+            onWheel={(e) => {
+              e.preventDefault();
+              gameRef.current?.zoom(e.deltaY);
+            }}
             onContextMenu={(e) => e.preventDefault()}
           />
+
+          {/* 3D Camera Controls Toolbar */}
+          <div className="camera-controls">
+            <button
+              type="button"
+              className="btn-cam"
+              title="Rotate Left (Q)"
+              onClick={() => gameRef.current?.rotate(-0.25, 0)}
+            >
+              <RotateCcw size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn-cam"
+              title="Reset View"
+              onClick={() => gameRef.current?.resetCamera()}
+            >
+              <Compass size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn-cam"
+              title="Zoom In"
+              onClick={() => gameRef.current?.zoom(-200)}
+            >
+              <ZoomIn size={16} />
+            </button>
+            <button
+              type="button"
+              className="btn-cam"
+              title="Zoom Out"
+              onClick={() => gameRef.current?.zoom(200)}
+            >
+              <ZoomOut size={16} />
+            </button>
+          </div>
+
           {hud.toast && ready && <div className="toast">{hud.toast}</div>}
           {hud.phase === "prep" && ready && (
             <div className="toast toast-sub">
@@ -166,18 +227,19 @@ export function MarrowRoad() {
               <Panel hud={hud} gameRef={gameRef} />
             </div>
           )}
+
           {hud.phase === "title" && ready && (
             <div className="overlay">
               <div className="card">
-                <p className="eyebrow">Graveyard defense</p>
-                <h1>Marrow Road</h1>
+                <p className="eyebrow">3D Graveyard Defense</p>
+                <h1>Marrow Road 3D</h1>
                 <p className="lede">
                   The dead already know the lane. Spend what they drop. Do not let them reach the chapel.
                 </p>
                 <div className="rules">
-                  <span>Four towers. Different reach, different price.</span>
-                  <span>Each one upgrades damage and tempo, three ranks.</span>
-                  <span>Twelve waves. A leak costs a life. Best watch: {hud.best}.</span>
+                  <span>Watchtower Commander: elevated view overlooking the entire lane.</span>
+                  <span>Click open grass to place towers • Click towers to inspect & upgrade.</span>
+                  <span>Drag to pan • Right-click drag to orbit • Scroll to zoom • WASD to move.</span>
                 </div>
                 <button type="button" className="btn btn-primary" onClick={() => gameRef.current?.start()}>
                   Begin the watch
@@ -185,15 +247,16 @@ export function MarrowRoad() {
               </div>
             </div>
           )}
+
           {(hud.phase === "victory" || hud.phase === "defeat") && (
             <div className="overlay">
               <div className="card">
-                <p className="eyebrow">{hud.phase === "victory" ? "The lane is quiet" : "They reached the door"}</p>
-                <h2>{hud.phase === "victory" ? "Chapel holds" : "The watch failed"}</h2>
-                <div className="stats">
+                <p className="eyebrow">{hud.phase === "victory" ? "Sanctuary" : "Desolation"}</p>
+                <h2>{hud.phase === "victory" ? "The chapel held" : "The lane was lost"}</h2>
+                <div className="stats-grid">
                   <div>
                     <b>{hud.wavesCleared}</b>
-                    <span>Waves</span>
+                    <span>Cleared</span>
                   </div>
                   <div>
                     <b>{hud.kills}</b>
@@ -215,15 +278,17 @@ export function MarrowRoad() {
               </div>
             </div>
           )}
+
           {!ready && !error && (
             <div className="overlay">
               <div className="card">
-                <p className="eyebrow">Marrow Road</p>
+                <p className="eyebrow">Marrow Road 3D</p>
                 <h2>Lighting the lane</h2>
-                <p className="lede">The graves are settling.</p>
+                <p className="lede">Summoning the graveyard in 3D...</p>
               </div>
             </div>
           )}
+
           {error && (
             <div className="overlay">
               <div className="card">
@@ -235,6 +300,7 @@ export function MarrowRoad() {
           )}
         </div>
       </div>
+
       <aside className="dock">
         <div className="tower-row">
           {TOWER_LIST.map((id, index) => {
@@ -265,7 +331,7 @@ export function MarrowRoad() {
   );
 }
 
-function Panel({ hud, gameRef }: { hud: Hud; gameRef: RefObject<Game | null> }) {
+function Panel({ hud, gameRef }: { hud: Hud; gameRef: RefObject<Game3DInstance | null> }) {
   const armed = hud.armed ? TOWERS[hud.armed] : null;
   if (hud.selected) {
     const tower = hud.selected;
@@ -310,15 +376,15 @@ function Panel({ hud, gameRef }: { hud: Hud; gameRef: RefObject<Game | null> }) 
         <p>
           Range {armed.range.toFixed(1)} · {armed.damage} damage · {armed.rate.toFixed(1)}/s · {armed.cost} gold
         </p>
-        <p>Tap open grass. Keys 1–4 pick a tower. Space calls the wave.</p>
+        <p>Tap open grass to place. Drag / Right-click to rotate view. Space calls the wave.</p>
       </>
     );
   }
   return (
     <>
       <h2>The watch</h2>
-      <p>Pick a tower, then tap grass that is not a grave and not the lane. Click a tower you own to upgrade it.</p>
-      <p>First aim stops leaks. Strongest aim is for the Warden. Sell returns sixty percent.</p>
+      <p>Pick a tower, then tap open grass. Click an existing tower to inspect or upgrade it.</p>
+      <p>Drag or right-click to orbit view • Mouse wheel to zoom • Sell returns 60% gold.</p>
     </>
   );
 }

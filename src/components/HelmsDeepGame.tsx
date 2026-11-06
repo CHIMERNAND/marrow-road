@@ -1,0 +1,565 @@
+import { useEffect, useRef, useState } from "react";
+import {
+  ShieldAlert,
+  Flame,
+  Bomb,
+  Volume2,
+  VolumeX,
+  RotateCcw,
+  Crosshair,
+  Skull,
+  Coins,
+  Wrench,
+  Sparkles,
+  Swords,
+  ChevronUp,
+  X,
+  MousePointer,
+} from "lucide-react";
+import { type HelmsGameState } from "@/helmsdeep/engine";
+import { BabylonHelmsEngine } from "@/babylon/engine";
+import { TURRET_SPECS, type TurretType } from "@/helmsdeep/types";
+
+export function HelmsDeepGame() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const engineRef = useRef<BabylonHelmsEngine | null>(null);
+
+  const [gameState, setGameState] = useState<HelmsGameState | null>(null);
+  const [isPointerLocked, setIsPointerLocked] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [selectedSocket, setSelectedSocket] = useState<number | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const engine = new BabylonHelmsEngine(canvas, (nextState) => {
+      setGameState(nextState);
+    });
+    engineRef.current = engine;
+    (window as unknown as { __HELMS_ENGINE__?: BabylonHelmsEngine }).__HELMS_ENGINE__ = engine;
+    engine.start();
+
+    const handleResize = () => {
+      if (containerRef.current && engineRef.current) {
+        const { clientWidth, clientHeight } = containerRef.current;
+        engineRef.current.resize(clientWidth, clientHeight);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    handleResize();
+
+    const handleLockChange = () => {
+      const locked = document.pointerLockElement === canvas;
+      setIsPointerLocked(locked);
+    };
+    document.addEventListener("pointerlockchange", handleLockChange);
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (document.pointerLockElement === canvas && engineRef.current) {
+        engineRef.current.onMouseMove(e.movementX, e.movementY);
+      }
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (document.pointerLockElement === canvas && engineRef.current) {
+        engineRef.current.onMouseDown(e.button);
+      }
+    };
+    const handleMouseUp = (e: MouseEvent) => {
+      if (engineRef.current) {
+        engineRef.current.onMouseUp(e.button);
+      }
+    };
+    window.addEventListener("mousedown", handleMouseDown);
+    window.addEventListener("mouseup", handleMouseUp);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.code === "Space" && engineRef.current?.state.status === "preparing") {
+        engineRef.current.startWaveNow();
+        e.preventDefault();
+        return;
+      }
+      if (e.code === "Escape") {
+        setSelectedSocket(null);
+      }
+      if (engineRef.current) {
+        engineRef.current.onKeyDown(e.code);
+      }
+    };
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (engineRef.current) {
+        engineRef.current.onKeyUp(e.code);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+    canvas.addEventListener("contextmenu", handleContextMenu);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      document.removeEventListener("pointerlockchange", handleLockChange);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mousedown", handleMouseDown);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      canvas.removeEventListener("contextmenu", handleContextMenu);
+      engine.destroy();
+    };
+  }, []);
+
+  const requestLock = () => {
+    if (canvasRef.current) {
+      canvasRef.current.requestPointerLock();
+    }
+  };
+
+  const handleToggleMute = () => {
+    if (engineRef.current) {
+      const muted = engineRef.current.audio.toggleMute();
+      setIsMuted(muted);
+    }
+  };
+
+  const handleBuild = (socketId: number, type: TurretType) => {
+    if (engineRef.current) {
+      engineRef.current.purchaseTurret(socketId, type);
+    }
+  };
+
+  const handleUpgrade = (socketId: number) => {
+    if (engineRef.current) {
+      engineRef.current.upgradeTurret(socketId);
+    }
+  };
+
+  const handleRepair = () => {
+    if (engineRef.current) {
+      engineRef.current.repairGate();
+    }
+  };
+
+  const handleRestart = () => {
+    if (engineRef.current) {
+      engineRef.current.restart();
+    }
+  };
+
+  const handleAbility = (id: "oil_dump" | "catapult_barrage" | "horn_of_helm") => {
+    if (engineRef.current) {
+      engineRef.current.useAbility(id);
+    }
+  };
+
+  const gateHealthPercent = gameState
+    ? Math.max(0, Math.round((gameState.gateHp / gameState.maxGateHp) * 100))
+    : 100;
+
+  const currentSocketData =
+    selectedSocket !== null && gameState
+      ? gameState.turretSockets.find((s) => s.id === selectedSocket)
+      : null;
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative w-screen h-screen overflow-hidden select-none bg-stone-950 font-sans text-stone-100"
+    >
+      {/* 3D WebGL Canvas */}
+      <canvas
+        ref={canvasRef}
+        onClick={requestLock}
+        className="w-full h-full block cursor-crosshair focus:outline-none"
+      />
+
+      {/* Optical Zoom Vignette Mask when Aiming */}
+      {gameState?.isAiming && (
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,0.85)_82%)] ring-2 ring-amber-500/40" />
+      )}
+
+      {/* Reticle / Crosshair */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        {gameState?.isAiming ? (
+          <div className="relative w-36 h-36 flex items-center justify-center">
+            <div className="w-28 h-28 rounded-full border border-amber-400/60 flex items-center justify-center">
+              <div className="w-1.5 h-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_#f59e0b]" />
+            </div>
+            <div className="absolute top-1 w-0.5 h-5 bg-amber-400/80" />
+            <div className="absolute bottom-1 w-0.5 h-5 bg-amber-400/80" />
+            <div className="absolute left-1 w-5 h-0.5 bg-amber-400/80" />
+            <div className="absolute right-1 w-5 h-0.5 bg-amber-400/80" />
+            <div className="absolute bottom-6 text-[10px] tracking-widest text-amber-300 font-mono font-bold">
+              SNIPER ZOOM
+            </div>
+          </div>
+        ) : (
+          <div className="relative w-10 h-10 flex items-center justify-center">
+            <div className="w-2 h-2 rounded-full bg-amber-200/90 shadow-[0_0_8px_gold]" />
+            <div className="absolute -top-3 w-0.5 h-2 bg-amber-300/80" />
+            <div className="absolute -bottom-3 w-0.5 h-2 bg-amber-300/80" />
+            <div className="absolute -left-3 w-2 h-0.5 bg-amber-300/80" />
+            <div className="absolute -right-3 w-2 h-0.5 bg-amber-300/80" />
+          </div>
+        )}
+
+        {/* Dynamic Hitmarkers */}
+        {gameState?.hitmarker === "headshot" && (
+          <div className="absolute flex flex-col items-center justify-center animate-ping text-red-500">
+            <Skull className="w-12 h-12 text-red-500 drop-shadow-[0_0_16px_rgba(239,68,68,1)]" />
+            <span className="text-xs font-black tracking-widest text-amber-300 drop-shadow-[0_0_10px_gold]">
+              HEADSHOT CRIT!
+            </span>
+          </div>
+        )}
+        {gameState?.hitmarker === "body" && (
+          <div className="absolute w-8 h-8 flex items-center justify-center animate-pulse">
+            <div className="absolute w-3 h-0.5 bg-amber-300 rotate-45 translate-x-2 translate-y-2" />
+            <div className="absolute w-3 h-0.5 bg-amber-300 -rotate-45 -translate-x-2 translate-y-2" />
+            <div className="absolute w-3 h-0.5 bg-amber-300 -rotate-45 translate-x-2 -translate-y-2" />
+            <div className="absolute w-3 h-0.5 bg-amber-300 rotate-45 -translate-x-2 -translate-y-2" />
+          </div>
+        )}
+      </div>
+
+      {/* TOP HUD: Gate Health, Wave, Gold */}
+      <div className="pointer-events-none absolute top-0 inset-x-0 p-4 flex items-start justify-between bg-gradient-to-b from-stone-950/85 via-stone-950/35 to-transparent">
+        {/* Top Left: Wave Status & Kills */}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-lg bg-amber-600/40 border border-amber-400/60 text-amber-300 font-black tracking-wider text-sm uppercase shadow">
+              Wave {gameState?.wave || 1} of {gameState?.totalWaves || 10}
+            </span>
+            {gameState?.status === "preparing" ? (
+              <span className="px-2.5 py-0.5 rounded bg-blue-900/60 border border-blue-400 text-blue-200 text-xs font-bold animate-pulse">
+                Next March: {gameState.waveCountdown}s
+              </span>
+            ) : (
+              <span className="px-2.5 py-0.5 rounded bg-red-950/80 border border-red-500 text-red-300 text-xs font-bold flex items-center gap-1">
+                <Swords className="w-3.5 h-3.5 text-red-400" />
+                Horde Marching ({gameState?.zombiesAlive || 0})
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 text-xs text-stone-200 font-semibold drop-shadow">
+            <span className="flex items-center gap-1">
+              <Skull className="w-3.5 h-3.5 text-stone-300" />
+              Kills: {gameState?.kills || 0} ({gameState?.headshots || 0} Headshots)
+            </span>
+            <span className="px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-[10px] uppercase tracking-wider font-bold">
+              Babylon.js Engine
+            </span>
+          </div>
+
+          {gameState?.status === "preparing" && (
+            <button
+              onClick={() => engineRef.current?.startWaveNow()}
+              className="pointer-events-auto mt-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-stone-950 font-black rounded-lg shadow text-xs flex items-center gap-1.5 transition-all w-fit cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Sound War Horn (Advance Wave) [SPACE]
+            </button>
+          )}
+        </div>
+
+        {/* Top Center: Gate Health Bar */}
+        <div className="flex flex-col items-center w-88 max-w-full">
+          <div className="flex items-center justify-between w-full text-xs font-bold uppercase tracking-wider mb-1 drop-shadow">
+            <span className="flex items-center gap-1 text-stone-100">
+              <ShieldAlert className="w-4 h-4 text-amber-400" />
+              Hornburg Deep Gate
+            </span>
+            <span
+              className={
+                gateHealthPercent < 30
+                  ? "text-red-400 font-black animate-ping"
+                  : "text-amber-300"
+              }
+            >
+              {gameState?.gateHp} / {gameState?.maxGateHp} HP ({gateHealthPercent}%)
+            </span>
+          </div>
+          <div className="w-full h-4 rounded-full bg-stone-900/90 border border-stone-600 p-0.5 overflow-hidden shadow-2xl">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                gateHealthPercent > 55
+                  ? "bg-gradient-to-r from-emerald-500 via-teal-400 to-emerald-400"
+                  : gateHealthPercent > 25
+                  ? "bg-gradient-to-r from-amber-500 to-yellow-400"
+                  : "bg-gradient-to-r from-red-600 to-rose-500 animate-pulse"
+              }`}
+              style={{ width: `${gateHealthPercent}%` }}
+            />
+          </div>
+          {gateHealthPercent < 100 && (
+            <button
+              onClick={handleRepair}
+              className="pointer-events-auto mt-1.5 px-3 py-1 bg-stone-900/90 hover:bg-stone-800 border border-amber-400/50 text-amber-300 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition shadow cursor-pointer"
+            >
+              <Wrench className="w-3.5 h-3.5 text-amber-400" />
+              Reinforce Gate (+250 HP) [100 Gold / Key R]
+            </button>
+          )}
+        </div>
+
+        {/* Top Right: Gold, Sound, and Pointer Lock Status */}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/60 text-amber-300 font-black tracking-wide shadow-lg">
+            <Coins className="w-4 h-4 text-yellow-400 animate-bounce" />
+            <span className="text-base">{gameState?.gold || 0} Gold</span>
+          </div>
+
+          <button
+            onClick={handleToggleMute}
+            className="pointer-events-auto p-2 rounded-xl bg-stone-900/90 hover:bg-stone-800 border border-stone-600 text-stone-200 hover:text-white transition cursor-pointer shadow"
+            title={isMuted ? "Unmute Audio" : "Mute Audio"}
+          >
+            {isMuted ? <VolumeX className="w-4 h-4 text-red-400" /> : <Volume2 className="w-4 h-4" />}
+          </button>
+        </div>
+      </div>
+
+      {/* BOTTOM QUICK CONTROL TIP (Non-intrusive pill above dock) */}
+      {!isPointerLocked && (
+        <div
+          onClick={requestLock}
+          className="absolute bottom-32 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-stone-900/95 hover:bg-stone-800 border border-amber-400/80 text-amber-300 font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-2xl cursor-pointer transition hover:scale-105"
+        >
+          <MousePointer className="w-3.5 h-3.5 text-amber-400" />
+          Click Screen to Aim Crossbow • [A/D] Strafe • [W/S or V] Elevate View • [L-Click] Shoot • [R-Click] Zoom
+        </div>
+      )}
+
+      {/* BOTTOM HUD: Ability Bar & Turret Battlement Sockets */}
+      <div className="absolute bottom-3 inset-x-0 px-6 flex flex-col items-center gap-3 pointer-events-none">
+        {/* Wall Sockets Overview Bar */}
+        <div className="pointer-events-auto flex items-center gap-2 p-2 rounded-2xl bg-stone-900/95 border border-stone-700/80 backdrop-blur-md shadow-2xl">
+          <span className="text-[11px] font-black text-amber-400 uppercase tracking-widest px-2 flex items-center gap-1">
+            <Crosshair className="w-3.5 h-3.5" />
+            Wall Turrets:
+          </span>
+          {gameState?.turretSockets.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setSelectedSocket(selectedSocket === s.id ? null : s.id)}
+              className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                selectedSocket === s.id
+                  ? "bg-amber-500 text-stone-950 border-amber-300 shadow-[0_0_14px_rgba(245,158,11,0.6)]"
+                  : s.turretType
+                  ? "bg-stone-800 text-amber-300 border-amber-500/40 hover:bg-stone-700"
+                  : "bg-stone-950/70 text-stone-400 border-dashed border-stone-700 hover:border-amber-400"
+              }`}
+            >
+              <span>{s.name}</span>
+              {s.turretType ? (
+                <span className="px-1.5 py-0.2 rounded bg-amber-950/80 border border-amber-600/50 text-[10px] text-amber-300">
+                  {TURRET_SPECS[s.turretType].name} {s.level > 1 && `★${s.level}`}
+                </span>
+              ) : (
+                <span className="text-[10px] text-stone-500">[+ Build]</span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Selected Socket Action Modal */}
+        {currentSocketData && (
+          <div className="pointer-events-auto p-4 rounded-2xl bg-stone-900/98 border border-amber-500/60 backdrop-blur-lg shadow-[0_0_35px_rgba(0,0,0,0.8)] flex flex-col gap-3 max-w-xl animate-in fade-in slide-in-from-bottom-2">
+            <div className="flex items-center justify-between border-b border-stone-800 pb-2">
+              <span className="font-black text-sm text-amber-300 flex items-center gap-1.5">
+                <ShieldAlert className="w-4 h-4" />
+                Socket: {currentSocketData.name}
+              </span>
+              <button
+                onClick={() => setSelectedSocket(null)}
+                className="text-stone-400 hover:text-white p-1 rounded-md bg-stone-800 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {currentSocketData.turretType ? (
+              // Already occupied: Upgrade option
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-bold text-stone-100 text-sm">
+                    {TURRET_SPECS[currentSocketData.turretType].name} (Level {currentSocketData.level})
+                  </div>
+                  <div className="text-xs text-stone-400">
+                    {TURRET_SPECS[currentSocketData.turretType].blurb}
+                  </div>
+                </div>
+                {currentSocketData.level < 3 ? (
+                  <button
+                    onClick={() => handleUpgrade(currentSocketData.id)}
+                    className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-stone-950 font-black rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                    Upgrade to Level {currentSocketData.level + 1} (
+                    {Math.round(
+                      TURRET_SPECS[currentSocketData.turretType].cost *
+                        0.85 *
+                        currentSocketData.level
+                    )}{" "}
+                    Gold)
+                  </button>
+                ) : (
+                  <span className="text-xs text-amber-400 font-black uppercase">
+                    Max Level Reached
+                  </span>
+                )}
+              </div>
+            ) : (
+              // Empty: Purchase options
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {(["repeater", "oil", "mortar", "ballista"] as TurretType[]).map((type) => {
+                  const spec = TURRET_SPECS[type];
+                  const canAfford = (gameState?.gold || 0) >= spec.cost;
+                  return (
+                    <button
+                      key={type}
+                      disabled={!canAfford}
+                      onClick={() => {
+                        handleBuild(currentSocketData.id, type);
+                        setSelectedSocket(null);
+                      }}
+                      className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition ${
+                        canAfford
+                          ? "bg-stone-800/90 hover:bg-amber-950/50 border-stone-700 hover:border-amber-400 cursor-pointer"
+                          : "bg-stone-900/40 border-stone-800 opacity-40 cursor-not-allowed"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-black text-xs text-stone-100">{spec.name}</div>
+                        <div className="text-[10px] text-stone-400 line-clamp-2 mt-0.5">
+                          {spec.blurb}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs font-black text-amber-300 flex items-center gap-1">
+                        <Coins className="w-3 h-3 text-yellow-400" />
+                        {spec.cost} Gold
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Active Siege Abilities Hotbar */}
+        <div className="pointer-events-auto flex items-center gap-3">
+          {gameState?.abilities.map((ab) => (
+            <button
+              key={ab.id}
+              disabled={!ab.ready}
+              onClick={() => handleAbility(ab.id)}
+              className={`relative px-4 py-2.5 rounded-xl border flex items-center gap-2.5 transition active:scale-95 shadow-2xl ${
+                ab.ready
+                  ? "bg-stone-900/95 hover:bg-stone-800 border-amber-500/60 text-stone-100 hover:border-amber-400 cursor-pointer"
+                  : "bg-stone-950/85 border-stone-800 text-stone-500 cursor-not-allowed"
+              }`}
+            >
+              <span className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-300 font-black flex items-center justify-center text-xs border border-amber-500/40">
+                {ab.hotkey}
+              </span>
+              <div className="flex flex-col text-left">
+                <span className="text-xs font-black">{ab.name}</span>
+                <span className="text-[10px] font-bold text-stone-400">
+                  {ab.ready ? "READY" : `${Math.ceil(ab.cooldown)}s`}
+                </span>
+              </div>
+              {ab.id === "oil_dump" && <Flame className="w-4 h-4 text-orange-400 ml-1" />}
+              {ab.id === "catapult_barrage" && <Bomb className="w-4 h-4 text-amber-400 ml-1" />}
+              {ab.id === "horn_of_helm" && <Sparkles className="w-4 h-4 text-cyan-400 ml-1" />}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* VICTORY MODAL */}
+      {gameState?.status === "victory" && (
+        <div className="absolute inset-0 bg-stone-950/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full p-8 rounded-2xl bg-stone-900 border border-amber-500/60 shadow-[0_0_50px_rgba(245,158,11,0.3)] text-center flex flex-col items-center gap-4">
+            <Sparkles className="w-14 h-14 text-amber-400 animate-spin" />
+            <h2 className="text-2xl font-black text-amber-300 tracking-wide">
+              THE DEEP WALL HOLDS!
+            </h2>
+            <p className="text-sm text-stone-300">
+              The hordes of the undead shattered against the gates. Helm Hammerhand himself would be
+              proud.
+            </p>
+            <div className="flex items-center justify-center gap-6 py-2 text-stone-300 text-sm">
+              <div>
+                <div className="text-xs text-stone-400">Total Kills</div>
+                <div className="text-xl font-bold text-amber-300">{gameState.kills}</div>
+              </div>
+              <div>
+                <div className="text-xs text-stone-400">Headshots</div>
+                <div className="text-xl font-bold text-amber-300">{gameState.headshots}</div>
+              </div>
+              <div>
+                <div className="text-xs text-stone-400">Gate Integrity</div>
+                <div className="text-xl font-bold text-emerald-400">
+                  {Math.round((gameState.gateHp / gameState.maxGateHp) * 100)}%
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={handleRestart}
+              className="mt-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 text-stone-950 font-black text-sm uppercase tracking-wider shadow hover:brightness-110 flex items-center gap-2 cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Defend Again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* DEFEAT MODAL */}
+      {gameState?.status === "defeat" && (
+        <div className="absolute inset-0 bg-stone-950/90 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="max-w-md w-full p-8 rounded-2xl bg-stone-900 border border-red-600/60 shadow-[0_0_50px_rgba(239,68,68,0.3)] text-center flex flex-col items-center gap-4">
+            <Skull className="w-14 h-14 text-red-500 animate-pulse" />
+            <h2 className="text-2xl font-black text-red-500 tracking-wide">
+              THE GATE HAS FALLEN
+            </h2>
+            <p className="text-sm text-stone-300">
+              The undead breached the main gatehouse. The fortress was overwhelmed.
+            </p>
+            <div className="flex items-center justify-center gap-6 py-2 text-stone-300 text-sm">
+              <div>
+                <div className="text-xs text-stone-400">Wave Reached</div>
+                <div className="text-xl font-bold text-stone-200">
+                  {gameState.wave} / {gameState.totalWaves}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-stone-400">Kills</div>
+                <div className="text-xl font-bold text-stone-200">{gameState.kills}</div>
+              </div>
+              <div>
+                <div className="text-xs text-stone-400">Headshots</div>
+                <div className="text-xl font-bold text-red-400">{gameState.headshots}</div>
+              </div>
+            </div>
+            <button
+              onClick={handleRestart}
+              className="mt-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-500 text-white font-black text-sm uppercase tracking-wider shadow flex items-center gap-2 cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Try Again
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
