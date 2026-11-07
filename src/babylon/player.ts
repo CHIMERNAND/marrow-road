@@ -40,6 +40,7 @@ export class BabylonHelmsPlayer {
   public yaw = 0;
   public isAiming = false;
   public zoomLevel = 2.4; // Adjustable 1.8x .. 4.5x when aiming!
+  public nightSightActive = false; // Arcane Night-Sight Runic Optics
   public currentAmmo: BoltAmmoType = "bodkin";
 
   public stats: PlayerWeaponStats = {
@@ -55,6 +56,8 @@ export class BabylonHelmsPlayer {
   private cooldown = 0;
   private recoilZ = 0;
   private shakeTrauma = 0;
+  private breathTimer = 0;
+  private ratchetTimer = 0;
 
   private limbL!: BABYLON.Mesh;
   private limbR!: BABYLON.Mesh;
@@ -62,6 +65,8 @@ export class BabylonHelmsPlayer {
   private crankWheelR!: BABYLON.Mesh;
   private loadedBoltGroup!: BABYLON.TransformNode;
   private loadedBroadhead!: BABYLON.Mesh;
+  private fpLeftArmNode!: BABYLON.TransformNode;
+  private fpRightArmNode!: BABYLON.TransformNode;
 
   private bodkinMat: BABYLON.StandardMaterial;
   private fireBoltMat: BABYLON.StandardMaterial;
@@ -147,6 +152,11 @@ export class BabylonHelmsPlayer {
 
   public addCameraShake(amount: number) {
     this.shakeTrauma = Math.min(1.0, this.shakeTrauma + amount);
+  }
+
+  public toggleNightSight(): boolean {
+    this.nightSightActive = !this.nightSightActive;
+    return this.nightSightActive;
   }
 
   private buildCrossbowMesh(): BABYLON.TransformNode {
@@ -308,6 +318,141 @@ export class BabylonHelmsPlayer {
     this.loadedBroadhead.material = this.bodkinMat;
     this.loadedBroadhead.parent = this.loadedBoltGroup;
 
+    // -------------------------------------------------------------
+    // FIRST-PERSON ARMORED ELVEN DEFENDER GAUNTLETS & FOREARMS
+    // -------------------------------------------------------------
+    const gauntletPlateMat = new BABYLON.PBRMaterial("gauntletPlateMat", this.scene);
+    gauntletPlateMat.albedoColor = new BABYLON.Color3(0.25, 0.28, 0.35);
+    gauntletPlateMat.metallic = 0.92;
+    gauntletPlateMat.roughness = 0.22;
+
+    const gauntletTrimMat = new BABYLON.PBRMaterial("gauntletTrimMat", this.scene);
+    gauntletTrimMat.albedoColor = new BABYLON.Color3(0.85, 0.65, 0.22);
+    gauntletTrimMat.metallic = 0.94;
+    gauntletTrimMat.roughness = 0.24;
+
+    const gloveLeatherMat = new BABYLON.PBRMaterial("gloveLeatherMat", this.scene);
+    gloveLeatherMat.albedoColor = new BABYLON.Color3(0.16, 0.11, 0.08);
+    gloveLeatherMat.metallic = 0.04;
+    gloveLeatherMat.roughness = 0.68;
+
+    // LEFT FOREARM & GAUNTLET (Cupping walnut fore-stock from underneath)
+    this.fpLeftArmNode = new BABYLON.TransformNode("fpLeftArm", this.scene);
+    this.fpLeftArmNode.parent = root;
+
+    const leftVambrace = BABYLON.MeshBuilder.CreateCylinder(
+      "leftVambrace",
+      { diameterTop: 0.082, diameterBottom: 0.105, height: 0.32, tessellation: 14 },
+      this.scene,
+    );
+    leftVambrace.rotation.x = 0.95;
+    leftVambrace.rotation.y = 0.35;
+    leftVambrace.rotation.z = -0.38;
+    leftVambrace.position.set(0.23, -0.37, -0.52);
+    leftVambrace.material = gauntletPlateMat;
+    leftVambrace.parent = this.fpLeftArmNode;
+
+    const leftVambraceTrim = BABYLON.MeshBuilder.CreateTorus(
+      "leftVambraceTrim",
+      { diameter: 0.098, thickness: 0.009, tessellation: 18 },
+      this.scene,
+    );
+    leftVambraceTrim.rotation.x = 0.95;
+    leftVambraceTrim.rotation.y = 0.35;
+    leftVambraceTrim.rotation.z = -0.38;
+    leftVambraceTrim.position.set(0.26, -0.34, -0.58);
+    leftVambraceTrim.material = gauntletTrimMat;
+    leftVambraceTrim.parent = this.fpLeftArmNode;
+
+    const leftHandPalm = BABYLON.MeshBuilder.CreateBox(
+      "leftHandPalm",
+      { width: 0.068, height: 0.055, depth: 0.082 },
+      this.scene,
+    );
+    leftHandPalm.position.set(0.32, -0.31, -0.64);
+    leftHandPalm.rotation.set(0.12, 0.22, -0.12);
+    leftHandPalm.material = gloveLeatherMat;
+    leftHandPalm.parent = this.fpLeftArmNode;
+
+    const leftKnuckles = BABYLON.MeshBuilder.CreateBox(
+      "leftKnuckles",
+      { width: 0.072, height: 0.026, depth: 0.068 },
+      this.scene,
+    );
+    leftKnuckles.position.set(0.298, -0.31, -0.64);
+    leftKnuckles.rotation.set(0.12, 0.22, -0.12);
+    leftKnuckles.material = gauntletPlateMat;
+    leftKnuckles.parent = this.fpLeftArmNode;
+
+    const leftThumb = BABYLON.MeshBuilder.CreateCylinder(
+      "leftThumb",
+      { diameter: 0.02, height: 0.058, tessellation: 8 },
+      this.scene,
+    );
+    leftThumb.rotation.z = Math.PI / 3;
+    leftThumb.position.set(0.31, -0.265, -0.62);
+    leftThumb.material = gauntletPlateMat;
+    leftThumb.parent = this.fpLeftArmNode;
+
+    // RIGHT FOREARM & GAUNTLET (Grip on walnut pistol stock and brass trigger)
+    this.fpRightArmNode = new BABYLON.TransformNode("fpRightArm", this.scene);
+    this.fpRightArmNode.parent = root;
+
+    const rightVambrace = BABYLON.MeshBuilder.CreateCylinder(
+      "rightVambrace",
+      { diameterTop: 0.085, diameterBottom: 0.108, height: 0.34, tessellation: 14 },
+      this.scene,
+    );
+    rightVambrace.rotation.x = 0.88;
+    rightVambrace.rotation.y = -0.24;
+    rightVambrace.rotation.z = 0.28;
+    rightVambrace.position.set(0.44, -0.37, -0.36);
+    rightVambrace.material = gauntletPlateMat;
+    rightVambrace.parent = this.fpRightArmNode;
+
+    const rightVambraceTrim = BABYLON.MeshBuilder.CreateTorus(
+      "rightVambraceTrim",
+      { diameter: 0.102, thickness: 0.009, tessellation: 18 },
+      this.scene,
+    );
+    rightVambraceTrim.rotation.x = 0.88;
+    rightVambraceTrim.rotation.y = -0.24;
+    rightVambraceTrim.rotation.z = 0.28;
+    rightVambraceTrim.position.set(0.40, -0.33, -0.42);
+    rightVambraceTrim.material = gauntletTrimMat;
+    rightVambraceTrim.parent = this.fpRightArmNode;
+
+    const rightHandPalm = BABYLON.MeshBuilder.CreateBox(
+      "rightHandPalm",
+      { width: 0.065, height: 0.068, depth: 0.075 },
+      this.scene,
+    );
+    rightHandPalm.position.set(0.362, -0.31, -0.45);
+    rightHandPalm.rotation.set(-0.12, -0.18, 0.18);
+    rightHandPalm.material = gloveLeatherMat;
+    rightHandPalm.parent = this.fpRightArmNode;
+
+    const rightKnuckles = BABYLON.MeshBuilder.CreateBox(
+      "rightKnuckles",
+      { width: 0.068, height: 0.028, depth: 0.068 },
+      this.scene,
+    );
+    rightKnuckles.position.set(0.388, -0.31, -0.45);
+    rightKnuckles.rotation.set(-0.12, -0.18, 0.18);
+    rightKnuckles.material = gauntletPlateMat;
+    rightKnuckles.parent = this.fpRightArmNode;
+
+    const rightTriggerFinger = BABYLON.MeshBuilder.CreateCylinder(
+      "rightTriggerFinger",
+      { diameter: 0.018, height: 0.052, tessellation: 8 },
+      this.scene,
+    );
+    rightTriggerFinger.rotation.x = Math.PI / 2.4;
+    rightTriggerFinger.rotation.y = -0.28;
+    rightTriggerFinger.position.set(0.346, -0.29, -0.505);
+    rightTriggerFinger.material = gauntletPlateMat;
+    rightTriggerFinger.parent = this.fpRightArmNode;
+
     return root;
   }
 
@@ -317,7 +462,11 @@ export class BabylonHelmsPlayer {
     const sx = (Math.random() - 0.5) * shakeMag;
     const sy = (Math.random() - 0.5) * shakeMag;
 
-    this.camera.position.set(this.currentX + sx, this.currentY + sy, -7.4);
+    this.breathTimer += dt * (this.isAiming ? 1.0 : 1.8);
+    const breathX = Math.sin(this.breathTimer * 0.8) * (this.isAiming ? 0.001 : 0.0035);
+    const breathY = Math.cos(this.breathTimer * 1.6) * (this.isAiming ? 0.001 : 0.0028);
+
+    this.camera.position.set(this.currentX + sx + breathX, this.currentY + sy + breathY, -7.4);
 
     const q = BABYLON.Quaternion.RotationYawPitchRoll(this.yaw, this.pitch, 0);
     this.camera.rotationQuaternion = q;
@@ -330,7 +479,7 @@ export class BabylonHelmsPlayer {
 
     if (this.weaponRoot) {
       const targetX = this.isAiming ? -0.34 : 0;
-      const targetY = this.isAiming ? 0.232 : 0;
+      const targetY = this.isAiming ? 0.232 : 0.065;
       this.weaponRoot.position.x += (targetX - this.weaponRoot.position.x) * adsLerp;
       this.weaponRoot.position.y += (targetY - this.weaponRoot.position.y) * adsLerp;
       this.weaponRoot.position.z = this.recoilZ;

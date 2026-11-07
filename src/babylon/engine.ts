@@ -21,6 +21,16 @@ interface ActiveFloatingDamage extends FloatingDamage {
   maxAge: number;
 }
 
+interface EnemySiegeBolt {
+  mesh: BABYLON.Mesh;
+  pos: BABYLON.Vector3;
+  targetPos: BABYLON.Vector3;
+  vel: BABYLON.Vector3;
+  age: number;
+  maxLife: number;
+  whizPlayed: boolean;
+}
+
 export class BabylonHelmsEngine {
   public engine: BABYLON.Engine;
   public scene: BABYLON.Scene;
@@ -93,6 +103,12 @@ export class BabylonHelmsEngine {
   private hitmarkerTimer = 0;
   private currentHitmarker: "body" | "headshot" | "shield" | null = null;
 
+  private enemySiegeBolts: EnemySiegeBolt[] = [];
+  private enemyFireTimer = 4.5;
+  private screenTraumaTimer = 0;
+  private emberSpawnTimer = 0;
+  private enemyBoltMat: BABYLON.StandardMaterial;
+
   private keysDown: Set<string> = new Set();
   private isMouseDown = false;
   private selectedSocketId: number | null = null;
@@ -118,6 +134,10 @@ export class BabylonHelmsEngine {
     this.turrets = new BabylonTurretManager(this.scene);
     this.vfx = new BabylonHelmsVFX(this.scene);
 
+    this.enemyBoltMat = new BABYLON.StandardMaterial("enemySiegeBoltMat", this.scene);
+    this.enemyBoltMat.emissiveColor = new BABYLON.Color3(1.0, 0.32, 0.06);
+    this.enemyBoltMat.disableLighting = true;
+
     this.state = {
       status: "wave",
       wave: 1,
@@ -140,6 +160,8 @@ export class BabylonHelmsEngine {
       powderBarrelsRemaining: this.world.powderBarrels.filter((b) => !b.detonated).length,
       zoomLevel: this.player.zoomLevel,
       bulletTimeActive: false,
+      nightSightActive: false,
+      screenTraumaTimer: 0,
       reticleTarget: null,
       floatingDamages: [],
       callouts: [],
@@ -510,6 +532,9 @@ export class BabylonHelmsEngine {
       const proj = this.player.shoot();
       if (proj) {
         this.audio.playShoot(this.player.isAiming ? 1.3 : 1.0);
+        setTimeout(() => {
+          this.audio.playWindlassRatchet();
+        }, 160);
       }
     }
 
@@ -556,6 +581,94 @@ export class BabylonHelmsEngine {
     this.world.update(dt);
     if (this.world.justStruckLightning) {
       this.audio.playThunder();
+    }
+
+    // Update incoming enemy siege bolts
+    for (let i = this.enemySiegeBolts.length - 1; i >= 0; i--) {
+      const b = this.enemySiegeBolts[i];
+      b.age += realDt;
+      b.vel.y -= 8.5 * realDt;
+      b.pos.addInPlace(b.vel.scale(realDt));
+      b.mesh.position.copyFrom(b.pos);
+
+      // Play whiz sound as it cuts close to defender
+      const distToPlayer = BABYLON.Vector3.Distance(b.pos, this.player.camera.position);
+      if (!b.whizPlayed && distToPlayer <= 16.0) {
+        b.whizPlayed = true;
+        this.audio.playIncomingSiegeWhiz();
+      }
+
+      // Parapet impact
+      if (b.pos.z >= -7.2 || b.age >= b.maxLife) {
+        this.vfx.spawnStoneImpact(b.pos);
+        this.audio.playParapetImpact();
+        if (distToPlayer <= 8.5) {
+          this.player.addCameraShake(0.48);
+          this.screenTraumaTimer = 0.4;
+          this.addCallout("RAMPARTS UNDER FIRE!", "Enemy Siege Bolt Struck Parapet", "red");
+        }
+        b.mesh.dispose();
+        this.enemySiegeBolts.splice(i, 1);
+      }
+    }
+
+    // Spawn enemy counter-siege shots during wave
+    if (this.state.status === "wave" && this.horde.zombies.length > 0) {
+      this.enemyFireTimer -= realDt;
+      if (this.enemyFireTimer <= 0) {
+        this.enemyFireTimer = 5.5 + Math.random() * 5.0;
+        const candidate = this.horde.zombies.find(
+          (z) => !z.dead && (z.type === "banshee" || z.type === "brute" || z.type === "warlord" || z.pos.z < -45),
+        );
+        if (candidate) {
+          const boltMesh = BABYLON.MeshBuilder.CreateCylinder(
+            "enemySiegeBolt",
+            { diameterTop: 0.04, diameterBottom: 0.12, height: 1.6, tessellation: 6 },
+            this.scene,
+          );
+          boltMesh.material = this.enemyBoltMat;
+          const origin = candidate.pos.clone();
+          origin.y += 2.2;
+          const target = new BABYLON.Vector3(
+            this.player.currentX + (Math.random() - 0.5) * 6.0,
+            this.player.currentY - 0.6,
+            -7.0,
+          );
+          const flightTime = 1.7;
+          const vx = (target.x - origin.x) / flightTime;
+          const vz = (target.z - origin.z) / flightTime;
+          const vy = (target.y - origin.y) / flightTime + 0.5 * 8.5 * flightTime;
+          boltMesh.position.copyFrom(origin);
+          boltMesh.rotation.x = Math.PI / 2;
+
+          this.enemySiegeBolts.push({
+            mesh: boltMesh,
+            pos: origin,
+            targetPos: target,
+            vel: new BABYLON.Vector3(vx, vy, vz),
+            age: 0,
+            maxLife: flightTime + 0.3,
+            whizPlayed: false,
+          });
+        }
+      }
+    }
+
+    // Ambient floating embers rising from torches & battlements
+    this.emberSpawnTimer += realDt;
+    if (this.emberSpawnTimer >= 0.18) {
+      this.emberSpawnTimer = 0;
+      this.vfx.spawnEmber(
+        new BABYLON.Vector3(
+          (Math.random() - 0.5) * 32,
+          25 + Math.random() * 3.0,
+          -6.0 - Math.random() * 5.0,
+        ),
+      );
+    }
+
+    if (this.screenTraumaTimer > 0) {
+      this.screenTraumaTimer = Math.max(0, this.screenTraumaTimer - realDt);
     }
 
     if (this.state.status === "preparing") {
@@ -769,6 +882,8 @@ export class BabylonHelmsEngine {
     this.state.isAiming = this.player.isAiming;
     this.state.zoomLevel = this.player.zoomLevel;
     this.state.bulletTimeActive = this.bulletTimeTimer > 0;
+    this.state.nightSightActive = this.player.nightSightActive;
+    this.state.screenTraumaTimer = this.screenTraumaTimer;
     this.state.reticleTarget = this.player.scanReticleTarget(
       this.horde.zombies,
       this.world.powderBarrels,
@@ -959,6 +1074,16 @@ export class BabylonHelmsEngine {
       this.audio.playAmmoSwitch();
       this.syncState();
     }
+    if (code === "KeyT") {
+      const active = this.player.toggleNightSight();
+      this.audio.playNightVisionHum();
+      this.addCallout(
+        active ? "RUNIC NIGHT-SIGHT ENGAGED" : "RUNIC NIGHT-SIGHT OFF",
+        active ? "Spectral Silhouette Highlighting" : "Standard Optical View",
+        active ? "cyan" : "gold",
+      );
+      this.syncState();
+    }
     if (code === "KeyV") {
       this.player.currentY = this.player.currentY > 29 ? 26.0 : 32.0;
     }
@@ -988,6 +1113,9 @@ export class BabylonHelmsEngine {
         const proj = this.player.shoot();
         if (proj) {
           this.audio.playShoot(this.player.isAiming ? 1.3 : 1.0);
+          setTimeout(() => {
+            this.audio.playWindlassRatchet();
+          }, 160);
         }
       }
     } else if (button === 2) {
@@ -1011,6 +1139,12 @@ export class BabylonHelmsEngine {
   }
 
   public restart() {
+    for (const b of this.enemySiegeBolts) {
+      b.mesh.dispose();
+    }
+    this.enemySiegeBolts = [];
+    this.screenTraumaTimer = 0;
+
     this.world.gateHealth = this.world.maxGateHealth;
     this.horde.clear();
     this.vfx.clear();
@@ -1039,6 +1173,10 @@ export class BabylonHelmsEngine {
 
   public destroy() {
     this.stop();
+    for (const b of this.enemySiegeBolts) {
+      b.mesh.dispose();
+    }
+    this.enemySiegeBolts = [];
     this.horde.clear();
     this.vfx.clear();
     this.player.clear();

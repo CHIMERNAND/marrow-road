@@ -44,9 +44,19 @@ export class BabylonHelmsVFX {
   private frostMat: BABYLON.StandardMaterial;
   private smokeMat: BABYLON.StandardMaterial;
   private groundFireMat: BABYLON.StandardMaterial;
+  private emberMat: BABYLON.StandardMaterial;
+  private stoneMat: BABYLON.StandardMaterial;
 
   constructor(scene: BABYLON.Scene) {
     this.scene = scene;
+
+    this.emberMat = new BABYLON.StandardMaterial("vfxEmberMat", scene);
+    this.emberMat.emissiveColor = new BABYLON.Color3(1.0, 0.62, 0.15);
+    this.emberMat.disableLighting = true;
+
+    this.stoneMat = new BABYLON.StandardMaterial("vfxStoneMat", scene);
+    this.stoneMat.diffuseColor = new BABYLON.Color3(0.38, 0.4, 0.44);
+    this.stoneMat.specularColor = new BABYLON.Color3(0.1, 0.12, 0.15);
 
     this.sparkMat = new BABYLON.StandardMaterial("vfxSparkMat", scene);
     this.sparkMat.emissiveColor = new BABYLON.Color3(1.0, 0.88, 0.35);
@@ -225,6 +235,100 @@ export class BabylonHelmsVFX {
       });
     }
     this.spawnShockwave(new BABYLON.Vector3(pos.x, 0.25, pos.z), 4.2, new BABYLON.Color3(0.3, 0.85, 1.0));
+  }
+
+  public spawnStoneImpact(pos: BABYLON.Vector3) {
+    // Sharp fractured stone chips flying off parapet
+    for (let i = 0; i < 9; i++) {
+      const chip = BABYLON.MeshBuilder.CreatePolyhedron(
+        "stoneChip",
+        { type: 1, size: 0.12 + Math.random() * 0.14 },
+        this.scene,
+      );
+      chip.position.copyFrom(pos);
+      chip.material = this.stoneMat;
+      this.particles.push({
+        mesh: chip,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 8,
+          Math.random() * 6 + 2.5,
+          (Math.random() - 0.5) * 8,
+        ),
+        rotVel: new BABYLON.Vector3(Math.random() * 16, Math.random() * 16, Math.random() * 16),
+        life: 0.85,
+        maxLife: 0.85,
+        scaleSpeed: -0.1,
+        bounces: true,
+      });
+    }
+    // Impact spark shower
+    for (let i = 0; i < 8; i++) {
+      const sp = BABYLON.MeshBuilder.CreateSphere(
+        "stoneSpark",
+        { diameter: 0.14, segments: 4 },
+        this.scene,
+      );
+      sp.position.copyFrom(pos);
+      sp.material = this.sparkMat;
+      this.particles.push({
+        mesh: sp,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 11,
+          Math.random() * 8 + 3,
+          (Math.random() - 0.5) * 11,
+        ),
+        life: 0.35,
+        maxLife: 0.35,
+        scaleSpeed: -0.6,
+      });
+    }
+  }
+
+  public spawnFrostShatter(pos: BABYLON.Vector3) {
+    for (let i = 0; i < 14; i++) {
+      const crystal = BABYLON.MeshBuilder.CreatePolyhedron(
+        "iceShard",
+        { type: 2, size: 0.28 + Math.random() * 0.2 },
+        this.scene,
+      );
+      crystal.position.copyFrom(pos);
+      crystal.material = this.frostMat;
+      this.particles.push({
+        mesh: crystal,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 10,
+          Math.random() * 8 + 2.5,
+          (Math.random() - 0.5) * 10,
+        ),
+        rotVel: new BABYLON.Vector3(12, 12, 12),
+        life: 1.1,
+        maxLife: 1.1,
+        scaleSpeed: -0.2,
+        bounces: true,
+      });
+    }
+    this.spawnShockwave(new BABYLON.Vector3(pos.x, 0.4, pos.z), 5.5, new BABYLON.Color3(0.4, 0.9, 1.0));
+  }
+
+  public spawnEmber(pos: BABYLON.Vector3) {
+    const em = BABYLON.MeshBuilder.CreateSphere(
+      "canyonEmber",
+      { diameter: 0.12, segments: 4 },
+      this.scene,
+    );
+    em.position.copyFrom(pos);
+    em.material = this.emberMat;
+    this.particles.push({
+      mesh: em,
+      vel: new BABYLON.Vector3(
+        (Math.random() - 0.3) * 3.5,
+        Math.random() * 2.5 + 1.2,
+        (Math.random() - 0.5) * 2.5,
+      ),
+      life: 1.6 + Math.random() * 1.2,
+      maxLife: 2.8,
+      scaleSpeed: -0.04,
+    });
   }
 
   public spawnShockwave(pos: BABYLON.Vector3, maxRadius = 8, color = new BABYLON.Color3(1.0, 0.5, 0.1)) {

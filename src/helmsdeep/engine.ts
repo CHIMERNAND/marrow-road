@@ -49,6 +49,8 @@ export type HelmsGameState = {
   bossMaxHp?: number;
   zoomLevel?: number;
   bulletTimeActive?: boolean;
+  nightSightActive?: boolean;
+  screenTraumaTimer?: number;
   reticleTarget?: ReticleTargetInfo | null;
   floatingDamages?: FloatingDamage[];
   callouts?: CombatCallout[];

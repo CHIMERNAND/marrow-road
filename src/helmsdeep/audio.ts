@@ -350,15 +350,113 @@ export class HelmsAudio {
     filter.Q.setValueAtTime(3.0, now);
 
     gain.gain.setValueAtTime(0.01, now);
-    gain.gain.linearRampToValueAtTime(0.6, now + 0.4);
+    gain.gain.linearRampToValueAtTime(0.55, now + 0.3);
     gain.gain.setValueAtTime(0.55, now + 2.0);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 3.0);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 3.2);
 
     osc.connect(filter);
     filter.connect(gain);
     gain.connect(ctx.destination);
     osc.start(now);
-    osc.stop(now + 3.1);
+    osc.stop(now + 3.3);
+  }
+
+  // Windlass Ratchet Cranking Click on Reload
+  public playWindlassRatchet() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    for (let i = 0; i < 3; i++) {
+      const t = now + i * 0.045;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "square";
+      osc.frequency.setValueAtTime(1150 + i * 180, t);
+      osc.frequency.exponentialRampToValueAtTime(420, t + 0.018);
+      gain.gain.setValueAtTime(0.16, t);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.022);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.025);
+    }
+  }
+
+  // Incoming Enemy Siege Projectile Whiz-by
+  public playIncomingSiegeWhiz() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const noise = this.createNoiseBuffer(ctx, 0.35);
+    const src = ctx.createBufferSource();
+    src.buffer = noise;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "bandpass";
+    filter.frequency.setValueAtTime(600, now);
+    filter.frequency.exponentialRampToValueAtTime(3200, now + 0.18);
+    filter.frequency.exponentialRampToValueAtTime(900, now + 0.35);
+    filter.Q.setValueAtTime(4.0, now);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.02, now);
+    gain.gain.linearRampToValueAtTime(0.38, now + 0.18);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    src.start(now);
+  }
+
+  // Stone Merlon / Parapet Impact Strike
+  public playParapetImpact() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    // Hard stone thud
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(190, now);
+    osc.frequency.exponentialRampToValueAtTime(42, now + 0.18);
+    gain.gain.setValueAtTime(0.65, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.22);
+
+    // Stone chips clatter
+    const noise = this.createNoiseBuffer(ctx, 0.18);
+    const src = ctx.createBufferSource();
+    src.buffer = noise;
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.setValueAtTime(1800, now);
+    const nGain = ctx.createGain();
+    nGain.gain.setValueAtTime(0.42, now);
+    nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    src.connect(filter);
+    filter.connect(nGain);
+    nGain.connect(ctx.destination);
+    src.start(now);
+  }
+
+  // Ethereal Runic Night-Sight Optics Engage
+  public playNightVisionHum() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+    gain.gain.setValueAtTime(0.01, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.12);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.28);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.3);
   }
 
   // Boiling Pitch Pour / Sizzle

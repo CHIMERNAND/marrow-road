@@ -219,6 +219,16 @@ export function HelmsDeepGame() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_36%,rgba(0,0,0,0.88)_84%)] ring-2 ring-amber-400/50" />
       )}
 
+      {/* Arcane Runic Night-Sight Optics Filter */}
+      {gameState?.nightSightActive && (
+        <div className="pointer-events-none absolute inset-0 bg-cyan-950/20 mix-blend-screen ring-4 ring-inset ring-cyan-500/50 shadow-[inset_0_0_140px_rgba(6,182,212,0.38)]" />
+      )}
+
+      {/* Parapet Under Fire / Combat Trauma Vignette */}
+      {(gameState?.screenTraumaTimer || 0) > 0 && (
+        <div className="pointer-events-none absolute inset-0 ring-8 ring-inset ring-red-600/70 bg-red-950/25 animate-pulse transition-opacity duration-150" />
+      )}
+
       {/* Bullet-Time Slow-Motion Edge Highlight */}
       {gameState?.bulletTimeActive && (
         <div className="pointer-events-none absolute inset-0 ring-4 ring-inset ring-cyan-400/60 bg-[radial-gradient(circle_at_center,transparent_60%,rgba(34,211,238,0.16)_100%)] transition-opacity" />
@@ -246,16 +256,49 @@ export function HelmsDeepGame() {
       {/* Reticle / Crosshair + Optical Rangefinder Telemetry */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         {gameState?.isAiming ? (
-          <div className="relative w-44 h-44 flex items-center justify-center">
-            <div className="w-34 h-34 rounded-full border border-amber-400/65 flex items-center justify-center shadow-[0_0_24px_rgba(245,158,11,0.2)]">
-              <div className="w-1.5 h-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_#f59e0b]" />
+          <div className="relative w-52 h-52 flex items-center justify-center">
+            {/* Tactical Etched Mil-Dot Glass Reticle */}
+            <div
+              className={`w-40 h-40 rounded-full border flex items-center justify-center transition-all ${
+                gameState.nightSightActive
+                  ? "border-cyan-400/80 shadow-[0_0_35px_rgba(6,182,212,0.4)]"
+                  : "border-amber-400/65 shadow-[0_0_24px_rgba(245,158,11,0.25)]"
+              }`}
+            >
+              <div
+                className={`w-1.5 h-1.5 rounded-full ${
+                  gameState.nightSightActive
+                    ? "bg-cyan-300 shadow-[0_0_10px_#22d3ee]"
+                    : "bg-amber-300 shadow-[0_0_8px_#f59e0b]"
+                }`}
+              />
             </div>
-            <div className="absolute top-1 w-0.5 h-6 bg-amber-400/80" />
-            <div className="absolute bottom-1 w-0.5 h-6 bg-amber-400/80" />
-            <div className="absolute left-1 w-6 h-0.5 bg-amber-400/80" />
-            <div className="absolute right-1 w-6 h-0.5 bg-amber-400/80" />
-            <div className="absolute -top-6 px-2 py-0.5 rounded bg-stone-950/75 border border-amber-400/40 text-[10px] tracking-widest text-amber-300 font-mono font-bold uppercase whitespace-nowrap">
-              ENHANCE {(gameState.zoomLevel || 2.4).toFixed(1)}x [SCROLL / Z]
+
+            {/* Crosshair Spikes */}
+            <div className={`absolute top-1 w-0.5 h-8 ${gameState.nightSightActive ? "bg-cyan-400/90" : "bg-amber-400/80"}`} />
+            <div className={`absolute bottom-1 w-0.5 h-8 ${gameState.nightSightActive ? "bg-cyan-400/90" : "bg-amber-400/80"}`} />
+            <div className={`absolute left-1 w-8 h-0.5 ${gameState.nightSightActive ? "bg-cyan-400/90" : "bg-amber-400/80"}`} />
+            <div className={`absolute right-1 w-8 h-0.5 ${gameState.nightSightActive ? "bg-cyan-400/90" : "bg-amber-400/80"}`} />
+
+            {/* Mil-Dot Hash Marks for Elevation & Range */}
+            <div className={`absolute top-10 w-2.5 h-0.5 ${gameState.nightSightActive ? "bg-cyan-400/50" : "bg-amber-400/40"}`} />
+            <div className={`absolute top-14 w-4 h-0.5 ${gameState.nightSightActive ? "bg-cyan-400/60" : "bg-amber-400/50"}`} />
+            <div className={`absolute bottom-10 w-2.5 h-0.5 ${gameState.nightSightActive ? "bg-cyan-400/50" : "bg-amber-400/40"}`} />
+            <div className={`absolute bottom-14 w-4 h-0.5 ${gameState.nightSightActive ? "bg-cyan-400/60" : "bg-amber-400/50"}`} />
+            <div className={`absolute left-10 w-0.5 h-2.5 ${gameState.nightSightActive ? "bg-cyan-400/50" : "bg-amber-400/40"}`} />
+            <div className={`absolute left-14 w-0.5 h-4 ${gameState.nightSightActive ? "bg-cyan-400/60" : "bg-amber-400/50"}`} />
+            <div className={`absolute right-10 w-0.5 h-2.5 ${gameState.nightSightActive ? "bg-cyan-400/50" : "bg-amber-400/40"}`} />
+            <div className={`absolute right-14 w-0.5 h-4 ${gameState.nightSightActive ? "bg-cyan-400/60" : "bg-amber-400/50"}`} />
+
+            {/* Status & Zoom Chip */}
+            <div
+              className={`absolute -top-7 px-2.5 py-0.5 rounded text-[10px] tracking-widest font-mono font-bold uppercase whitespace-nowrap border ${
+                gameState.nightSightActive
+                  ? "bg-cyan-950/85 border-cyan-400/60 text-cyan-200"
+                  : "bg-stone-950/75 border-amber-400/40 text-amber-300"
+              }`}
+            >
+              ENHANCE {(gameState.zoomLevel || 2.4).toFixed(1)}x [SCROLL / Z] • {gameState.nightSightActive ? "RUNIC NIGHT-SIGHT [T]" : "OPTIC [T]"}
             </div>
           </div>
         ) : (
@@ -531,7 +574,7 @@ export function HelmsDeepGame() {
           className="absolute bottom-28 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-stone-900/95 hover:bg-stone-800 border border-amber-400/80 text-amber-300 font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-2xl cursor-pointer transition hover:scale-105 whitespace-nowrap"
         >
           <MousePointer className="w-3.5 h-3.5 text-amber-400" />
-          Click to Aim Crossbow • [Q] Switch Bolt Ammo • [1-4] Siege Abilities • [G] Upgrade Arbalest • Shoot Red Powder Casks!
+          Click to Aim • [Scroll / Z] Enhance Zoom • [T] Night-Sight • [Q] Ammo • [1-4] Abilities • [G] Upgrade • Shoot Red Powder Casks!
         </div>
       )}
 
