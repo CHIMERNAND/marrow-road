@@ -5,7 +5,6 @@ export interface TurretSocket {
   name: string;
   pos: BABYLON.Vector3;
   type: string | null;
-  ringMat?: BABYLON.StandardMaterial;
 }
 
 export interface PowderBarrel {
@@ -34,6 +33,7 @@ export class BabylonHelmsWorld {
   public gateLeftDoor!: BABYLON.Mesh;
   public gateRightDoor!: BABYLON.Mesh;
   public shadowGenerator!: BABYLON.ShadowGenerator;
+  public pipeline?: BABYLON.DefaultRenderingPipeline;
   public turretSockets: TurretSocket[] = [];
   public powderBarrels: PowderBarrel[] = [];
   public garrisonArchers: GarrisonArcher[] = [];
@@ -42,14 +42,15 @@ export class BabylonHelmsWorld {
   private torchLights: BABYLON.PointLight[] = [];
   private flameMeshes: BABYLON.Mesh[] = [];
   private bannerMeshes: BABYLON.Mesh[] = [];
+  private mistClouds: BABYLON.Mesh[] = [];
   private lightningLight!: BABYLON.DirectionalLight;
   private lightningBoltMesh!: BABYLON.Mesh;
   private lightningTimer = 7.5;
   private rainLines: BABYLON.Mesh[] = [];
   private rainRipples: BABYLON.Mesh[] = [];
 
-  private barrelWoodMat!: BABYLON.StandardMaterial;
-  private barrelIronMat!: BABYLON.StandardMaterial;
+  private barrelWoodMat!: BABYLON.PBRMaterial;
+  private barrelIronMat!: BABYLON.PBRMaterial;
   private barrelBandMat!: BABYLON.StandardMaterial;
   private barrelSparkMat!: BABYLON.StandardMaterial;
   private nextBarrelId = 1;
@@ -57,38 +58,42 @@ export class BabylonHelmsWorld {
   constructor(scene: BABYLON.Scene) {
     this.scene = scene;
 
-    // 1. Cinematic ACES Tone Mapping & Atmospheric Grading
-    scene.clearColor = new BABYLON.Color4(0.03, 0.05, 0.09, 1.0);
+    // 1. Cinematic ACES Tone Mapping & Stormy Atmosphere
+    scene.clearColor = new BABYLON.Color4(0.02, 0.04, 0.08, 1.0);
     scene.ambientColor = new BABYLON.Color3(0.24, 0.29, 0.36);
     scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
-    scene.fogColor = new BABYLON.Color3(0.05, 0.08, 0.13);
-    scene.fogDensity = 0.004;
+    scene.fogColor = new BABYLON.Color3(0.04, 0.07, 0.12);
+    scene.fogDensity = 0.0036;
 
     scene.imageProcessingConfiguration.toneMappingEnabled = true;
     scene.imageProcessingConfiguration.toneMappingType =
       BABYLON.ImageProcessingConfiguration.TONEMAPPING_ACES;
-    scene.imageProcessingConfiguration.exposure = 1.18;
-    scene.imageProcessingConfiguration.contrast = 1.24;
+    scene.imageProcessingConfiguration.exposure = 1.22;
+    scene.imageProcessingConfiguration.contrast = 1.26;
     scene.imageProcessingConfiguration.vignetteEnabled = true;
-    scene.imageProcessingConfiguration.vignetteWeight = 1.7;
+    scene.imageProcessingConfiguration.vignetteWeight = 1.85;
     scene.imageProcessingConfiguration.vignetteColor = new BABYLON.Color4(0.01, 0.02, 0.04, 1);
 
-    // Subtle Realistic Bloom/Glow for Fire, Runes & Lightning
+    // Procedural Stormy Moonlit Environment CubeTexture for Realistic PBR Metal & Wet-Stone Reflections
+    scene.environmentTexture = this.createStormEnvironmentCube();
+    scene.environmentIntensity = 1.35;
+
+    // Subtle GlowLayer for Embers, Runes & Lightning
     const glow = new BABYLON.GlowLayer("glow", scene, {
       mainTextureFixedSize: 512,
       blurKernelSize: 32,
     });
-    glow.intensity = 0.42;
+    glow.intensity = 0.36;
 
-    // 2. Physically-Grounded Lighting Rig + Real-Time Shadow Mapping
+    // 2. Physically-Grounded Lighting Rig + Real-Time PCF Shadow Mapping
     const hemiLight = new BABYLON.HemisphericLight(
       "hemiLight",
       new BABYLON.Vector3(0, 1, 0),
       scene,
     );
-    hemiLight.intensity = 0.65;
-    hemiLight.diffuse = new BABYLON.Color3(0.52, 0.64, 0.82);
-    hemiLight.groundColor = new BABYLON.Color3(0.16, 0.18, 0.22);
+    hemiLight.intensity = 0.62;
+    hemiLight.diffuse = new BABYLON.Color3(0.52, 0.65, 0.85);
+    hemiLight.groundColor = new BABYLON.Color3(0.15, 0.17, 0.22);
 
     const moonLight = new BABYLON.DirectionalLight(
       "moonLight",
@@ -96,25 +101,23 @@ export class BabylonHelmsWorld {
       scene,
     );
     moonLight.position = new BABYLON.Vector3(50, 110, -85);
-    moonLight.intensity = 1.65;
-    moonLight.diffuse = new BABYLON.Color3(0.78, 0.86, 0.98);
-    moonLight.specular = new BABYLON.Color3(0.85, 0.9, 1.0);
+    moonLight.intensity = 1.85;
+    moonLight.diffuse = new BABYLON.Color3(0.78, 0.88, 1.0);
+    moonLight.specular = new BABYLON.Color3(0.9, 0.95, 1.0);
 
-    // Real-time PCF Shadow Generator
     this.shadowGenerator = new BABYLON.ShadowGenerator(2048, moonLight);
     this.shadowGenerator.usePercentageCloserFiltering = true;
-    this.shadowGenerator.filteringQuality = BABYLON.ShadowGenerator.QUALITY_MEDIUM;
-    this.shadowGenerator.bias = 0.0008;
-    this.shadowGenerator.normalBias = 0.02;
+    this.shadowGenerator.filteringQuality = BABYLON.ShadowGenerator.QUALITY_HIGH;
+    this.shadowGenerator.bias = 0.0007;
+    this.shadowGenerator.normalBias = 0.018;
 
-    // Warm Torch-Bounce Fill Light illuminating zombie front silhouettes
     const gorgeLight = new BABYLON.DirectionalLight(
       "gorgeLight",
       new BABYLON.Vector3(0.12, -0.45, -0.88),
       scene,
     );
-    gorgeLight.intensity = 0.88;
-    gorgeLight.diffuse = new BABYLON.Color3(0.95, 0.76, 0.55);
+    gorgeLight.intensity = 0.92;
+    gorgeLight.diffuse = new BABYLON.Color3(0.98, 0.78, 0.55);
 
     this.lightningLight = new BABYLON.DirectionalLight(
       "lightningLight",
@@ -122,97 +125,187 @@ export class BabylonHelmsWorld {
       scene,
     );
     this.lightningLight.intensity = 0;
-    this.lightningLight.diffuse = new BABYLON.Color3(0.82, 0.92, 1.0);
+    this.lightningLight.diffuse = new BABYLON.Color3(0.85, 0.94, 1.0);
 
-    // 3. High-Detail Procedural Diffuse & Normal/Bump Textures
-    const stoneDiff = this.createDetailedAshlarTexture("stoneDiff", "#5a636e", "#3a4048", 8, 4);
-    const stoneNorm = this.createAshlarNormalMap("stoneNorm", 8, 4);
-    const darkStoneDiff = this.createDetailedAshlarTexture("darkStoneDiff", "#3e454f", "#252a30", 6, 3);
-    const darkStoneNorm = this.createAshlarNormalMap("darkStoneNorm", 6, 3);
-    const roadDiff = this.createRealisticCobbleTexture("roadDiff");
-    const roadNorm = this.createCobbleNormalMap("roadNorm");
-    const cliffDiff = this.createGraniteCliffTexture("cliffDiff");
-    const cliffNorm = this.createGraniteNormalMap("cliffNorm");
+    // 3. Ultra-High-Resolution (1024x1024) Procedural PBR Textures & Normal Maps
+    const stoneDiff = this.createDetailedAshlarTexture("stoneDiff", "#58626e", "#2d333b", 7, 3.5);
+    const stoneNorm = this.createAshlarNormalMap("stoneNorm", 7, 3.5);
+    const darkStoneDiff = this.createDetailedAshlarTexture("darkStoneDiff", "#3c434d", "#20252b", 5, 2.5);
+    const darkStoneNorm = this.createAshlarNormalMap("darkStoneNorm", 5, 2.5);
+
+    const roadDiff = this.createFlagstoneRoadTexture("roadDiff");
+    const roadNorm = this.createFlagstoneNormalMap("roadNorm");
+
+    const cliffDiff = this.createFracturedSlateCliffTexture("cliffDiff");
+    const cliffNorm = this.createFracturedSlateNormalMap("cliffNorm");
+
     const woodDiff = this.createWeatheredWoodTexture("woodDiff");
 
-    const wallMat = new BABYLON.StandardMaterial("wallMat", scene);
-    wallMat.diffuseTexture = stoneDiff;
+    // PBR Fortress Masonry Material (wet rain-sheen stone)
+    const wallMat = new BABYLON.PBRMaterial("wallMat", scene);
+    wallMat.albedoTexture = stoneDiff;
     wallMat.bumpTexture = stoneNorm;
-    wallMat.specularColor = new BABYLON.Color3(0.22, 0.24, 0.28);
-    wallMat.specularPower = 24;
+    wallMat.metallic = 0.08;
+    wallMat.roughness = 0.62;
 
-    const trimMat = new BABYLON.StandardMaterial("trimMat", scene);
-    trimMat.diffuseTexture = darkStoneDiff;
+    const trimMat = new BABYLON.PBRMaterial("trimMat", scene);
+    trimMat.albedoTexture = darkStoneDiff;
     trimMat.bumpTexture = darkStoneNorm;
-    trimMat.specularColor = new BABYLON.Color3(0.28, 0.3, 0.35);
-    trimMat.specularPower = 32;
+    trimMat.metallic = 0.12;
+    trimMat.roughness = 0.52;
 
-    const slateRoofMat = new BABYLON.StandardMaterial("slateRoofMat", scene);
-    slateRoofMat.diffuseColor = new BABYLON.Color3(0.14, 0.18, 0.24);
+    const slateRoofMat = new BABYLON.PBRMaterial("slateRoofMat", scene);
+    slateRoofMat.albedoColor = new BABYLON.Color3(0.14, 0.18, 0.24);
     slateRoofMat.bumpTexture = darkStoneNorm;
-    slateRoofMat.specularColor = new BABYLON.Color3(0.35, 0.4, 0.48);
-    slateRoofMat.specularPower = 40;
+    slateRoofMat.metallic = 0.22;
+    slateRoofMat.roughness = 0.38;
 
-    const woodMat = new BABYLON.StandardMaterial("woodMat", scene);
-    woodMat.diffuseTexture = woodDiff;
-    woodMat.specularColor = new BABYLON.Color3(0.14, 0.1, 0.07);
-    woodMat.specularPower = 16;
+    const woodMat = new BABYLON.PBRMaterial("woodMat", scene);
+    woodMat.albedoTexture = woodDiff;
+    woodMat.metallic = 0.04;
+    woodMat.roughness = 0.72;
     this.barrelWoodMat = woodMat;
 
-    const ironMat = new BABYLON.StandardMaterial("ironMat", scene);
-    ironMat.diffuseColor = new BABYLON.Color3(0.18, 0.2, 0.23);
-    ironMat.specularColor = new BABYLON.Color3(0.72, 0.76, 0.82);
-    ironMat.specularPower = 64;
+    const ironMat = new BABYLON.PBRMaterial("ironMat", scene);
+    ironMat.albedoColor = new BABYLON.Color3(0.22, 0.25, 0.29);
+    ironMat.metallic = 0.88;
+    ironMat.roughness = 0.34;
     this.barrelIronMat = ironMat;
 
+    const brassMat = new BABYLON.PBRMaterial("brassMat", scene);
+    brassMat.albedoColor = new BABYLON.Color3(0.78, 0.58, 0.22);
+    brassMat.metallic = 0.9;
+    brassMat.roughness = 0.28;
+
+    const valleyMat = new BABYLON.PBRMaterial("valleyMat", scene);
+    valleyMat.albedoTexture = cliffDiff;
+    valleyMat.bumpTexture = cliffNorm;
+    valleyMat.metallic = 0.06;
+    valleyMat.roughness = 0.58; // Rain-slicked mountain slate
+
+    const roadMat = new BABYLON.PBRMaterial("roadMat", scene);
+    roadMat.albedoTexture = roadDiff;
+    roadMat.bumpTexture = roadNorm;
+    roadMat.metallic = 0.14;
+    roadMat.roughness = 0.32; // Wet rain-drenched flagstone reflections!
+
     this.barrelBandMat = new BABYLON.StandardMaterial("barrelBandMat", scene);
-    this.barrelBandMat.diffuseColor = new BABYLON.Color3(0.65, 0.14, 0.1);
-    this.barrelBandMat.emissiveColor = new BABYLON.Color3(0.22, 0.04, 0.02);
+    this.barrelBandMat.diffuseColor = new BABYLON.Color3(0.7, 0.14, 0.1);
+    this.barrelBandMat.emissiveColor = new BABYLON.Color3(0.28, 0.04, 0.02);
 
     this.barrelSparkMat = new BABYLON.StandardMaterial("barrelSparkMat", scene);
-    this.barrelSparkMat.emissiveColor = new BABYLON.Color3(1.0, 0.65, 0.15);
+    this.barrelSparkMat.emissiveColor = new BABYLON.Color3(1.0, 0.68, 0.18);
     this.barrelSparkMat.disableLighting = true;
 
-    const brassMat = new BABYLON.StandardMaterial("brassMat", scene);
-    brassMat.diffuseColor = new BABYLON.Color3(0.68, 0.5, 0.18);
-    brassMat.specularColor = new BABYLON.Color3(0.95, 0.82, 0.45);
-    brassMat.specularPower = 48;
-
-    const valleyMat = new BABYLON.StandardMaterial("valleyMat", scene);
-    valleyMat.diffuseTexture = cliffDiff;
-    valleyMat.bumpTexture = cliffNorm;
-    valleyMat.specularColor = new BABYLON.Color3(0.16, 0.19, 0.22);
-    valleyMat.specularPower = 20;
-
-    const roadMat = new BABYLON.StandardMaterial("roadMat", scene);
-    roadMat.diffuseTexture = roadDiff;
-    roadMat.bumpTexture = roadNorm;
-    roadMat.specularColor = new BABYLON.Color3(0.42, 0.46, 0.52);
-    roadMat.specularPower = 38;
-
-    // 4. Night Sky Dome, Moon, Lightning Fork & Distant Horizon Mountains
+    // 4. Night Sky, Moon, Volumetric Moonlight God-Rays & Distant Mountains
     this.buildSkyAndHorizon(valleyMat);
 
-    // 5. Build the Realistic Hornburg Fortress, Portcullis & Machicolations
+    // 5. Realistic Hornburg Fortress, Arched Gatehouse, Portcullis & Chains
     this.buildFortress(wallMat, trimMat, slateRoofMat, woodMat, ironMat);
 
-    // 6. Build the Sculpted Canyon Floor, Causeway, Barricades & Boulders
+    // 6. Sculpted Canyon Floor, Wet Flagstone Causeway, Barricades & Mist
     this.buildCanyonAndRoad(valleyMat, roadMat, trimMat, woodMat, ironMat);
 
-    // 7. Build Roadside & Battlement Flaming Braziers
+    // 7. Roadside & Battlement Flaming Braziers
     this.buildBraziers(ironMat);
 
-    // 8. Build Turret Emplacement Sockets
+    // 8. Turret Emplacement Sockets
     this.buildTurretSockets(brassMat, trimMat);
 
-    // 9. Station Allied Royal Elven Sentinels on the Battlements
+    // 9. Allied Royal Elven Sentinels on the Battlements
     this.buildGarrisonArchers(ironMat, brassMat, woodMat);
 
-    // 10. Place Explosive Black-Powder Barrels along the Canyon Causeway
+    // 10. Explosive Black-Powder Barrels along the Canyon Causeway
     this.spawnPowderBarrels();
 
-    // 11. Atmospheric Rain Streaks & Wet Cobblestone Splash Ripples
+    // 11. Atmospheric Rain Streaks & Wet Splash Ripples
     this.buildRain();
+  }
+
+  public setupPostPipeline(camera: BABYLON.Camera) {
+    const pipeline = new BABYLON.DefaultRenderingPipeline(
+      "helmsRenderPipeline",
+      true,
+      this.scene,
+      [camera],
+    );
+    pipeline.samples = 4;
+    pipeline.fxaaEnabled = true;
+
+    // "ENHANCE" Crisp Optical Edge Sharpening
+    pipeline.sharpenEnabled = true;
+    pipeline.sharpen.edgeAmount = 0.42;
+    pipeline.sharpen.colorAmount = 1.0;
+
+    // Cinematic HDR Bloom on Torches, Flaming Bolts & Lightning
+    pipeline.bloomEnabled = true;
+    pipeline.bloomThreshold = 0.72;
+    pipeline.bloomWeight = 0.42;
+    pipeline.bloomKernel = 64;
+    pipeline.bloomScale = 0.5;
+
+    // Dynamic Lens Chromatic Aberration (subtle at rest, pulses on zoom/explosions)
+    pipeline.chromaticAberrationEnabled = true;
+    pipeline.chromaticAberration.aberrationAmount = 3.5;
+    pipeline.chromaticAberration.radialIntensity = 0.8;
+
+    // Subtle Dark-Fantasy Film Grain
+    pipeline.grainEnabled = true;
+    pipeline.grain.intensity = 5.0;
+    pipeline.grain.animated = true;
+
+    this.pipeline = pipeline;
+  }
+
+  private createStormEnvironmentCube(): BABYLON.RawCubeTexture {
+    const size = 64;
+    const faces: Uint8Array[] = [];
+
+    for (let f = 0; f < 6; f++) {
+      const data = new Uint8Array(size * size * 4);
+      for (let y = 0; y < size; y++) {
+        const v = y / (size - 1);
+        for (let x = 0; x < size; x++) {
+          const idx = (y * size + x) * 4;
+          let r = 24;
+          let g = 34;
+          let b = 52;
+
+          if (f === 2) {
+            // +Y Top Sky Face (Moonlit indigo clouds)
+            r = 48;
+            g = 66;
+            b = 98;
+          } else if (f === 3) {
+            // -Y Bottom Ground Face (Warm torchlit stone bounce)
+            r = 42;
+            g = 30;
+            b = 22;
+          } else {
+            // Horizon faces: blend moonlit sky top to warm torchlit canyon bottom
+            const skyMix = 1 - v;
+            r = Math.round(38 * skyMix + 44 * v);
+            g = Math.round(54 * skyMix + 34 * v);
+            b = Math.round(82 * skyMix + 28 * v);
+          }
+
+          data[idx] = r;
+          data[idx + 1] = g;
+          data[idx + 2] = b;
+          data[idx + 3] = 255;
+        }
+      }
+      faces.push(data);
+    }
+
+    return new BABYLON.RawCubeTexture(
+      this.scene,
+      faces,
+      size,
+      BABYLON.Engine.TEXTUREFORMAT_RGBA,
+      BABYLON.Engine.TEXTURETYPE_UNSIGNED_INT,
+      false,
+    );
   }
 
   private hash(x: number, y: number): number {
@@ -227,15 +320,16 @@ export class BabylonHelmsWorld {
     uScale: number,
     vScale: number,
   ): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, false);
+    const sz = 1024;
+    const tex = new BABYLON.DynamicTexture(name, { width: sz, height: sz }, this.scene, true);
     const ctx = tex.getContext();
     ctx.fillStyle = mortarHex;
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, sz, sz);
 
-    const rows = 10;
-    const cols = 5;
-    const rowH = 512 / rows;
-    const colW = 512 / cols;
+    const rows = 12;
+    const cols = 6;
+    const rowH = sz / rows;
+    const colW = sz / cols;
 
     for (let r = 0; r < rows; r++) {
       const offset = (r % 2) * (colW * 0.5);
@@ -244,15 +338,20 @@ export class BabylonHelmsWorld {
         const y = r * rowH;
         const hVal = this.hash(r, c);
         ctx.fillStyle = baseHex;
-        ctx.globalAlpha = 0.78 + hVal * 0.22;
-        ctx.fillRect(x + 2, y + 2, colW - 4, rowH - 4);
+        ctx.globalAlpha = 0.8 + hVal * 0.2;
+        ctx.fillRect(x + 3, y + 3, colW - 6, rowH - 6);
 
-        for (let g = 0; g < 18; g++) {
-          const gx = x + 4 + this.hash(r * 13 + g, c) * (colW - 10);
-          const gy = y + 4 + this.hash(c * 17 + g, r) * (rowH - 10);
-          ctx.fillStyle = g % 2 === 0 ? "#1f2429" : "#8b95a1";
-          ctx.globalAlpha = 0.14;
-          ctx.fillRect(gx, gy, 8 + (g % 10), 2 + (g % 4));
+        // Chiseled edge highlight
+        ctx.strokeStyle = "rgba(180, 195, 215, 0.18)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x + 4, y + 4, colW - 8, rowH - 8);
+
+        // Fine stone mineral streaks (smooth horizontal veining, zero blocky pixels)
+        for (let g = 0; g < 14; g++) {
+          const gx = x + 6 + this.hash(r * 13 + g, c) * (colW - 24);
+          const gy = y + 6 + this.hash(c * 17 + g, r) * (rowH - 12);
+          ctx.fillStyle = g % 2 === 0 ? "rgba(22, 26, 32, 0.16)" : "rgba(155, 170, 188, 0.12)";
+          ctx.fillRect(gx, gy, 18 + (g % 18), 2);
         }
       }
     }
@@ -266,29 +365,30 @@ export class BabylonHelmsWorld {
   }
 
   private createAshlarNormalMap(name: string, uScale: number, vScale: number): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, false);
+    const sz = 1024;
+    const tex = new BABYLON.DynamicTexture(name, { width: sz, height: sz }, this.scene, true);
     const ctx = tex.getContext();
     ctx.fillStyle = "rgb(128, 128, 255)";
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, sz, sz);
 
-    const rows = 10;
-    const cols = 5;
-    const rowH = 512 / rows;
-    const colW = 512 / cols;
+    const rows = 12;
+    const cols = 6;
+    const rowH = sz / rows;
+    const colW = sz / cols;
 
     for (let r = 0; r < rows; r++) {
       const offset = (r % 2) * (colW * 0.5);
       for (let c = -1; c <= cols; c++) {
         const x = c * colW + offset;
         const y = r * rowH;
-        ctx.fillStyle = "rgb(128, 185, 240)";
-        ctx.fillRect(x + 2, y + 2, colW - 4, 3);
-        ctx.fillStyle = "rgb(128, 70, 240)";
-        ctx.fillRect(x + 2, y + rowH - 5, colW - 4, 3);
-        ctx.fillStyle = "rgb(185, 128, 240)";
-        ctx.fillRect(x + 2, y + 2, 3, rowH - 4);
-        ctx.fillStyle = "rgb(70, 128, 240)";
-        ctx.fillRect(x + colW - 5, y + 2, 3, rowH - 4);
+        ctx.fillStyle = "rgb(128, 190, 240)";
+        ctx.fillRect(x + 3, y + 3, colW - 6, 4);
+        ctx.fillStyle = "rgb(128, 68, 240)";
+        ctx.fillRect(x + 3, y + rowH - 7, colW - 6, 4);
+        ctx.fillStyle = "rgb(190, 128, 240)";
+        ctx.fillRect(x + 3, y + 3, 4, rowH - 6);
+        ctx.fillStyle = "rgb(68, 128, 240)";
+        ctx.fillRect(x + colW - 7, y + 3, 4, rowH - 6);
       }
     }
     tex.update();
@@ -299,149 +399,194 @@ export class BabylonHelmsWorld {
     return tex;
   }
 
-  private createRealisticCobbleTexture(name: string): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, false);
+  private createFlagstoneRoadTexture(name: string): BABYLON.DynamicTexture {
+    const sz = 1024;
+    const tex = new BABYLON.DynamicTexture(name, { width: sz, height: sz }, this.scene, true);
     const ctx = tex.getContext();
-    ctx.fillStyle = "#1f1d1a";
-    ctx.fillRect(0, 0, 512, 512);
+    // Dark wet mud/mortar base
+    ctx.fillStyle = "#18191c";
+    ctx.fillRect(0, 0, sz, sz);
 
-    const rows = 16;
-    const cols = 12;
-    const cellW = 512 / cols;
-    const cellH = 512 / rows;
+    // Interlocking Irregular Medieval Flagstone Courses (Zero uniform polka-dots!)
+    const rows = 20;
+    const rowH = sz / rows;
 
     for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const h1 = this.hash(r, c);
-        const h2 = this.hash(c + 19, r + 31);
-        const cx = (c + 0.5 + (h1 - 0.5) * 0.25) * cellW;
-        const cy = (r + 0.5 + (h2 - 0.5) * 0.25) * cellH;
-        const rx = cellW * (0.36 + h1 * 0.1);
-        const ry = cellH * (0.35 + h2 * 0.1);
+      let curX = -40 + (r % 2) * 32;
+      while (curX < sz) {
+        const slabW = 68 + Math.floor(this.hash(r, curX) * 58);
+        const h1 = this.hash(curX, r * 7);
+        const shade = Math.floor(54 + h1 * 34);
+        const blueTint = Math.floor(shade * 1.08);
 
-        const shade = Math.floor(62 + h1 * 38);
-        ctx.fillStyle = `rgb(${shade + 4}, ${shade}, ${shade - 5})`;
+        // Beveled stone slab polygon with slight organic jitter
+        ctx.fillStyle = `rgb(${shade}, ${shade + 2}, ${blueTint})`;
         ctx.beginPath();
-        ctx.arc(cx, cy, Math.min(rx, ry), 0, Math.PI * 2);
+        ctx.moveTo(curX + 3, r * rowH + 3);
+        ctx.lineTo(curX + slabW - 3, r * rowH + 2 + (h1 - 0.5) * 3);
+        ctx.lineTo(curX + slabW - 4, (r + 1) * rowH - 3);
+        ctx.lineTo(curX + 4, (r + 1) * rowH - 2 - (h1 - 0.5) * 3);
+        ctx.closePath();
         ctx.fill();
 
-        ctx.strokeStyle = `rgba(160, 155, 145, 0.22)`;
+        // Chiseled top highlight
+        ctx.strokeStyle = "rgba(165, 178, 195, 0.18)";
         ctx.lineWidth = 1.5;
         ctx.stroke();
+
+        curX += slabW;
       }
     }
 
-    ctx.fillStyle = "rgba(15, 14, 12, 0.32)";
-    ctx.fillRect(110, 0, 55, 512);
-    ctx.fillRect(345, 0, 55, 512);
+    // Worn Dark Wheel Ruts & Rain Puddle Darkening along the Causeway
+    const gradL = ctx.createLinearGradient(180, 0, 340, 0);
+    gradL.addColorStop(0, "rgba(10, 12, 16, 0)");
+    gradL.addColorStop(0.5, "rgba(10, 12, 16, 0.42)");
+    gradL.addColorStop(1, "rgba(10, 12, 16, 0)");
+    ctx.fillStyle = gradL;
+    ctx.fillRect(180, 0, 160, sz);
+
+    const gradR = ctx.createLinearGradient(680, 0, 840, 0);
+    gradR.addColorStop(0, "rgba(10, 12, 16, 0)");
+    gradR.addColorStop(0.5, "rgba(10, 12, 16, 0.42)");
+    gradR.addColorStop(1, "rgba(10, 12, 16, 0)");
+    ctx.fillStyle = gradR;
+    ctx.fillRect(680, 0, 160, sz);
 
     tex.update();
     tex.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
     tex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
-    tex.uScale = 3.5;
-    tex.vScale = 28;
+    tex.uScale = 2.5;
+    tex.vScale = 22;
     return tex;
   }
 
-  private createCobbleNormalMap(name: string): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, false);
+  private createFlagstoneNormalMap(name: string): BABYLON.DynamicTexture {
+    const sz = 1024;
+    const tex = new BABYLON.DynamicTexture(name, { width: sz, height: sz }, this.scene, true);
     const ctx = tex.getContext();
     ctx.fillStyle = "rgb(128, 128, 255)";
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, sz, sz);
 
-    const rows = 16;
-    const cols = 12;
-    const cellW = 512 / cols;
-    const cellH = 512 / rows;
-
+    const rows = 20;
+    const rowH = sz / rows;
     for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const h1 = this.hash(r, c);
-        const h2 = this.hash(c + 19, r + 31);
-        const cx = (c + 0.5 + (h1 - 0.5) * 0.25) * cellW;
-        const cy = (r + 0.5 + (h2 - 0.5) * 0.25) * cellH;
-        const rad = Math.min(cellW, cellH) * 0.38;
-
-        ctx.fillStyle = "rgb(165, 165, 245)";
-        ctx.beginPath();
-        ctx.arc(cx - 2, cy - 2, rad, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = "rgb(95, 95, 245)";
-        ctx.beginPath();
-        ctx.arc(cx + 2, cy + 2, rad * 0.85, 0, Math.PI * 2);
-        ctx.fill();
+      let curX = -40 + (r % 2) * 32;
+      while (curX < sz) {
+        const slabW = 68 + Math.floor(this.hash(r, curX) * 58);
+        ctx.fillStyle = "rgb(128, 178, 245)";
+        ctx.fillRect(curX + 3, r * rowH + 3, slabW - 6, 3);
+        ctx.fillStyle = "rgb(128, 78, 245)";
+        ctx.fillRect(curX + 3, (r + 1) * rowH - 6, slabW - 6, 3);
+        ctx.fillStyle = "rgb(178, 128, 245)";
+        ctx.fillRect(curX + 3, r * rowH + 3, 3, rowH - 6);
+        curX += slabW;
       }
     }
     tex.update();
     tex.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
     tex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
-    tex.uScale = 3.5;
-    tex.vScale = 28;
+    tex.uScale = 2.5;
+    tex.vScale = 22;
     return tex;
   }
 
-  private createGraniteCliffTexture(name: string): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, false);
+  private createFracturedSlateCliffTexture(name: string): BABYLON.DynamicTexture {
+    const sz = 1024;
+    const tex = new BABYLON.DynamicTexture(name, { width: sz, height: sz }, this.scene, true);
     const ctx = tex.getContext();
-    ctx.fillStyle = "#1c2126";
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillStyle = "#1a2028";
+    ctx.fillRect(0, 0, sz, sz);
 
-    for (let i = 0; i < 1800; i++) {
-      const h1 = this.hash(i, i * 3);
-      const h2 = this.hash(i * 7, i + 11);
-      const x = h1 * 512;
-      const y = h2 * 512;
-      const w = 6 + (i % 18);
-      const h = 3 + (i % 8);
-      const v = Math.floor(26 + h1 * 32);
-      const moss = i % 7 === 0 ? 6 : 0;
-      ctx.fillStyle = `rgb(${v}, ${v + 4 + moss}, ${v + 7})`;
-      ctx.fillRect(x, y, w, h);
+    // Smooth Layered Geological Rock Strata & Diagonal Fault Ridges (Zero blocky squares!)
+    for (let band = 0; band < 85; band++) {
+      const baseY = (band / 85) * sz;
+      const h = this.hash(band, 19);
+      const v = Math.floor(26 + h * 28);
+      ctx.strokeStyle = `rgba(${v}, ${v + 5}, ${v + 11}, 0.55)`;
+      ctx.lineWidth = 6 + (band % 12);
+      ctx.beginPath();
+      ctx.moveTo(0, baseY);
+      for (let x = 64; x <= sz; x += 64) {
+        const wave = Math.sin(x * 0.012 + band * 0.7) * 14 + (this.hash(x, band) - 0.5) * 10;
+        ctx.lineTo(x, baseY + wave);
+      }
+      ctx.stroke();
     }
+
+    // Sharp Dark Rock Fissures & Crevices
+    for (let f = 0; f < 45; f++) {
+      let fx = this.hash(f, 3) * sz;
+      let fy = this.hash(f, 9) * sz;
+      ctx.strokeStyle = "rgba(8, 11, 15, 0.65)";
+      ctx.lineWidth = 2 + (f % 3);
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      for (let s = 0; s < 6; s++) {
+        fx += 28 + this.hash(f + s, 21) * 35;
+        fy += (this.hash(s, f * 5) - 0.35) * 42;
+        ctx.lineTo(fx, fy);
+      }
+      ctx.stroke();
+    }
+
+    // Subtle Wet Rain-Runoff Vertical Sheen Streaks
+    for (let w = 0; w < 60; w++) {
+      const wx = this.hash(w, 77) * sz;
+      const wy = this.hash(w, 91) * sz;
+      ctx.fillStyle = "rgba(130, 155, 185, 0.06)";
+      ctx.fillRect(wx, wy, 3, 90 + (w % 80));
+    }
+
     tex.update();
     tex.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
     tex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
-    tex.uScale = 12;
-    tex.vScale = 16;
+    tex.uScale = 6;
+    tex.vScale = 8;
     return tex;
   }
 
-  private createGraniteNormalMap(name: string): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, false);
+  private createFracturedSlateNormalMap(name: string): BABYLON.DynamicTexture {
+    const sz = 1024;
+    const tex = new BABYLON.DynamicTexture(name, { width: sz, height: sz }, this.scene, true);
     const ctx = tex.getContext();
     ctx.fillStyle = "rgb(128, 128, 255)";
-    ctx.fillRect(0, 0, 512, 512);
+    ctx.fillRect(0, 0, sz, sz);
 
-    for (let i = 0; i < 1400; i++) {
-      const x = this.hash(i, 13) * 512;
-      const y = this.hash(i, 29) * 512;
-      const nx = Math.floor(90 + this.hash(i, 41) * 76);
-      const ny = Math.floor(90 + this.hash(i, 59) * 76);
-      ctx.fillStyle = `rgb(${nx}, ${ny}, 245)`;
-      ctx.fillRect(x, y, 8, 5);
+    for (let band = 0; band < 75; band++) {
+      const baseY = (band / 75) * sz;
+      ctx.strokeStyle = band % 2 === 0 ? "rgb(128, 175, 242)" : "rgb(128, 82, 242)";
+      ctx.lineWidth = 4 + (band % 6);
+      ctx.beginPath();
+      ctx.moveTo(0, baseY);
+      for (let x = 64; x <= sz; x += 64) {
+        const wave = Math.sin(x * 0.012 + band * 0.7) * 14;
+        ctx.lineTo(x, baseY + wave);
+      }
+      ctx.stroke();
     }
+
     tex.update();
     tex.wrapU = BABYLON.Texture.WRAP_ADDRESSMODE;
     tex.wrapV = BABYLON.Texture.WRAP_ADDRESSMODE;
-    tex.uScale = 12;
-    tex.vScale = 16;
+    tex.uScale = 6;
+    tex.vScale = 8;
     return tex;
   }
 
   private createWeatheredWoodTexture(name: string): BABYLON.DynamicTexture {
-    const tex = new BABYLON.DynamicTexture(name, { width: 256, height: 256 }, this.scene, false);
+    const tex = new BABYLON.DynamicTexture(name, { width: 512, height: 512 }, this.scene, true);
     const ctx = tex.getContext();
-    ctx.fillStyle = "#332012";
-    ctx.fillRect(0, 0, 256, 256);
+    ctx.fillStyle = "#2b1a0e";
+    ctx.fillRect(0, 0, 512, 512);
 
     for (let p = 0; p < 8; p++) {
-      const x = p * 32;
-      ctx.fillStyle = p % 2 === 0 ? "#3b2515" : "#2e1c0f";
-      ctx.fillRect(x + 1, 0, 30, 256);
-      for (let g = 0; g < 24; g++) {
-        ctx.fillStyle = "rgba(20, 10, 4, 0.35)";
-        ctx.fillRect(x + 2 + (g % 26), (g * 37) % 256, 2, 28);
+      const x = p * 64;
+      ctx.fillStyle = p % 2 === 0 ? "#382213" : "#2c1a0e";
+      ctx.fillRect(x + 2, 0, 60, 512);
+      for (let g = 0; g < 36; g++) {
+        ctx.fillStyle = "rgba(16, 8, 3, 0.35)";
+        ctx.fillRect(x + 4 + (g % 54), (g * 43) % 512, 2, 48);
       }
     }
     tex.update();
@@ -450,9 +595,9 @@ export class BabylonHelmsWorld {
     return tex;
   }
 
-  private buildSkyAndHorizon(valleyMat: BABYLON.StandardMaterial) {
+  private buildSkyAndHorizon(valleyMat: BABYLON.PBRMaterial) {
     const moonMat = new BABYLON.StandardMaterial("moonDiscMat", this.scene);
-    moonMat.emissiveColor = new BABYLON.Color3(0.85, 0.9, 1.0);
+    moonMat.emissiveColor = new BABYLON.Color3(0.88, 0.94, 1.0);
     moonMat.disableLighting = true;
 
     const moon = BABYLON.MeshBuilder.CreateDisc(
@@ -464,9 +609,43 @@ export class BabylonHelmsWorld {
     moon.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
     moon.material = moonMat;
 
-    // 3D Forked Lightning Bolt in the distant storm clouds (visible during thunder strikes)
+    // Soft Outer Moon Halo
+    const haloMat = new BABYLON.StandardMaterial("moonHaloMat", this.scene);
+    haloMat.emissiveColor = new BABYLON.Color3(0.35, 0.5, 0.72);
+    haloMat.alpha = 0.22;
+    haloMat.disableLighting = true;
+    const moonHalo = BABYLON.MeshBuilder.CreateDisc(
+      "moonHalo",
+      { radius: 32, tessellation: 32 },
+      this.scene,
+    );
+    moonHalo.position.set(38, 88, -232);
+    moonHalo.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+    moonHalo.material = haloMat;
+
+    // Volumetric Moonlight God-Ray Shafts slicing diagonally across the canyon
+    const rayMat = new BABYLON.StandardMaterial("godRayMat", this.scene);
+    rayMat.emissiveColor = new BABYLON.Color3(0.32, 0.48, 0.72);
+    rayMat.alpha = 0.022;
+    rayMat.alphaMode = BABYLON.Engine.ALPHA_ADD;
+    rayMat.disableLighting = true;
+    rayMat.backFaceCulling = false;
+
+    for (let i = 0; i < 3; i++) {
+      const ray = BABYLON.MeshBuilder.CreateCylinder(
+        `moonGodRay_${i}`,
+        { diameterTop: 8, diameterBottom: 28, height: 155, tessellation: 16, cap: BABYLON.Mesh.NO_CAP },
+        this.scene,
+      );
+      ray.position.set(18 - i * 16, 56, -72 - i * 38);
+      ray.rotation.z = 0.34;
+      ray.rotation.x = -0.15;
+      ray.material = rayMat;
+    }
+
+    // 3D Forked Lightning Bolt in the distant storm clouds
     const boltMat = new BABYLON.StandardMaterial("skyLightningMat", this.scene);
-    boltMat.emissiveColor = new BABYLON.Color3(0.8, 0.95, 1.0);
+    boltMat.emissiveColor = new BABYLON.Color3(0.85, 0.96, 1.0);
     boltMat.disableLighting = true;
 
     const boltPoints = [
@@ -478,13 +657,12 @@ export class BabylonHelmsWorld {
     ];
     this.lightningBoltMesh = BABYLON.MeshBuilder.CreateTube(
       "skyLightningFork",
-      { path: boltPoints, radius: 0.65, tessellation: 6 },
+      { path: boltPoints, radius: 0.7, tessellation: 6 },
       this.scene,
     );
     this.lightningBoltMesh.material = boltMat;
     this.lightningBoltMesh.visibility = 0;
 
-    // Distant Jagged Mountain Horizon closing off the far end of the valley
     const horizonPeaks = [
       { x: -95, h: 95, r: 65, z: -225 },
       { x: -45, h: 78, r: 52, z: -230 },
@@ -505,13 +683,12 @@ export class BabylonHelmsWorld {
   }
 
   private buildFortress(
-    wallMat: BABYLON.StandardMaterial,
-    trimMat: BABYLON.StandardMaterial,
-    slateRoofMat: BABYLON.StandardMaterial,
-    woodMat: BABYLON.StandardMaterial,
-    ironMat: BABYLON.StandardMaterial,
+    wallMat: BABYLON.PBRMaterial,
+    trimMat: BABYLON.PBRMaterial,
+    slateRoofMat: BABYLON.PBRMaterial,
+    woodMat: BABYLON.PBRMaterial,
+    ironMat: BABYLON.PBRMaterial,
   ) {
-    // Main Deep Wall Rampart (Z = -6.5 to -1.5, Height = 22m)
     const mainWall = BABYLON.MeshBuilder.CreateBox(
       "mainWall",
       { width: 96, height: this.wallParapetY, depth: 5.0 },
@@ -591,40 +768,40 @@ export class BabylonHelmsWorld {
 
     // THE HORNBURG GATEHOUSE at Z = -28.0
     const bannerMat = new BABYLON.StandardMaterial("gateBannerMat", this.scene);
-    bannerMat.diffuseColor = new BABYLON.Color3(0.52, 0.1, 0.1);
+    bannerMat.diffuseColor = new BABYLON.Color3(0.55, 0.1, 0.1);
     bannerMat.specularColor = new BABYLON.Color3(0.12, 0.05, 0.05);
 
     for (const side of [-1, 1]) {
       const gx = side * 9.8;
       const drum = BABYLON.MeshBuilder.CreateCylinder(
         `gateDrum_${side}`,
-        { diameterTop: 5.0, diameterBottom: 6.0, height: 9.2, tessellation: 16 },
+        { diameterTop: 5.2, diameterBottom: 6.2, height: 9.6, tessellation: 20 },
         this.scene,
       );
-      drum.position.set(gx, 4.6, this.gateZ + 0.5);
+      drum.position.set(gx, 4.8, this.gateZ + 0.5);
       drum.material = wallMat;
       drum.receiveShadows = true;
       this.shadowGenerator.addShadowCaster(drum);
 
       const drumRim = BABYLON.MeshBuilder.CreateTorus(
         `drumRim_${side}`,
-        { diameter: 5.3, thickness: 0.5, tessellation: 16 },
+        { diameter: 5.5, thickness: 0.55, tessellation: 20 },
         this.scene,
       );
-      drumRim.position.set(gx, 9.2, this.gateZ + 0.5);
+      drumRim.position.set(gx, 9.5, this.gateZ + 0.5);
       drumRim.material = trimMat;
 
       for (let a = 0; a < 8; a++) {
         const ang = (a * Math.PI * 2) / 8;
         const tooth = BABYLON.MeshBuilder.CreateBox(
           `drumTooth_${side}_${a}`,
-          { width: 0.9, height: 0.75, depth: 0.5 },
+          { width: 0.95, height: 0.85, depth: 0.55 },
           this.scene,
         );
         tooth.position.set(
-          gx + Math.sin(ang) * 2.35,
-          9.6,
-          this.gateZ + 0.5 + Math.cos(ang) * 2.35,
+          gx + Math.sin(ang) * 2.45,
+          10.0,
+          this.gateZ + 0.5 + Math.cos(ang) * 2.45,
         );
         tooth.rotation.y = ang;
         tooth.material = trimMat;
@@ -632,10 +809,10 @@ export class BabylonHelmsWorld {
 
       const banner = BABYLON.MeshBuilder.CreatePlane(
         `banner_${side}`,
-        { width: 1.2, height: 3.6, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
+        { width: 1.3, height: 3.8, sideOrientation: BABYLON.Mesh.DOUBLESIDE },
         this.scene,
       );
-      banner.position.set(gx, 5.5, this.gateZ - 2.35);
+      banner.position.set(gx, 5.6, this.gateZ - 2.5);
       banner.material = bannerMat;
       this.bannerMeshes.push(banner);
 
@@ -648,36 +825,59 @@ export class BabylonHelmsWorld {
       barbicanWall.material = wallMat;
       barbicanWall.receiveShadows = true;
       this.shadowGenerator.addShadowCaster(barbicanWall);
+
+      // Hanging Iron Drawbridge / Portcullis Chains
+      const chain = BABYLON.MeshBuilder.CreateCylinder(
+        `gateChain_${side}`,
+        { diameter: 0.14, height: 5.5, tessellation: 8 },
+        this.scene,
+      );
+      chain.position.set(side * 5.6, 5.8, this.gateZ - 0.9);
+      chain.rotation.x = 0.18;
+      chain.material = ironMat;
     }
 
+    // Layered Crenellated Gatehouse Bridge & Machicolation Gallery
     const gateLintel = BABYLON.MeshBuilder.CreateBox(
       "gateLintel",
-      { width: 17.5, height: 2.0, depth: 2.6 },
+      { width: 17.5, height: 2.2, depth: 2.8 },
       this.scene,
     );
-    gateLintel.position.set(0, 7.4, this.gateZ);
+    gateLintel.position.set(0, 7.5, this.gateZ);
     gateLintel.material = trimMat;
     this.shadowGenerator.addShadowCaster(gateLintel);
 
-    // Murder-Hole Boiling Pitch Spouts mounted along the Gatehouse Lintel
+    // Battlement Merlons along top of Gatehouse Bridge
+    for (let mx = -6.0; mx <= 6.0; mx += 2.4) {
+      const gMerlon = BABYLON.MeshBuilder.CreateBox(
+        `gateMerlon_${mx}`,
+        { width: 1.35, height: 0.85, depth: 0.55 },
+        this.scene,
+      );
+      gMerlon.position.set(mx, 9.0, this.gateZ - 1.1);
+      gMerlon.material = wallMat;
+    }
+
+    // Murder-Hole Boiling Pitch Spouts
     for (const sx of [-4.5, 0, 4.5]) {
       const cauldronSpout = BABYLON.MeshBuilder.CreateCylinder(
         `murderSpout_${sx}`,
-        { diameterTop: 0.7, diameterBottom: 0.9, height: 1.1, tessellation: 10 },
+        { diameterTop: 0.7, diameterBottom: 0.95, height: 1.2, tessellation: 12 },
         this.scene,
       );
       cauldronSpout.rotation.x = Math.PI / 3;
-      cauldronSpout.position.set(sx, 8.1, this.gateZ - 1.2);
+      cauldronSpout.position.set(sx, 8.1, this.gateZ - 1.3);
       cauldronSpout.material = ironMat;
     }
 
+    // Forged Iron Portcullis Bars + Spiked Bottom Teeth
     for (let px = -5.0; px <= 5.0; px += 1.25) {
       const bar = BABYLON.MeshBuilder.CreateCylinder(
         `portcullisV_${px}`,
-        { diameter: 0.16, height: 6.8, tessellation: 8 },
+        { diameter: 0.18, height: 6.8, tessellation: 8 },
         this.scene,
       );
-      bar.position.set(px, 3.4, this.gateZ - 0.55);
+      bar.position.set(px, 3.4, this.gateZ - 0.58);
       bar.material = ironMat;
     }
 
@@ -717,20 +917,20 @@ export class BabylonHelmsWorld {
       6,
       this.scene,
     );
-    gateSpot.intensity = 2.8;
+    gateSpot.intensity = 3.0;
     gateSpot.diffuse = new BABYLON.Color3(1.0, 0.78, 0.45);
   }
 
   private buildCanyonAndRoad(
-    valleyMat: BABYLON.StandardMaterial,
-    roadMat: BABYLON.StandardMaterial,
-    cliffMat: BABYLON.StandardMaterial,
-    woodMat: BABYLON.StandardMaterial,
-    ironMat: BABYLON.StandardMaterial,
+    valleyMat: BABYLON.PBRMaterial,
+    roadMat: BABYLON.PBRMaterial,
+    cliffMat: BABYLON.PBRMaterial,
+    woodMat: BABYLON.PBRMaterial,
+    ironMat: BABYLON.PBRMaterial,
   ) {
     const ground = BABYLON.MeshBuilder.CreateGround(
       "valleyGround",
-      { width: 180, height: 230, subdivisions: 72, updatable: true },
+      { width: 180, height: 230, subdivisions: 84, updatable: true },
       this.scene,
     );
     ground.position.set(0, 0, -110);
@@ -762,7 +962,7 @@ export class BabylonHelmsWorld {
 
     const road = BABYLON.MeshBuilder.CreateGround(
       "siegeRoad",
-      { width: 20, height: 205, subdivisions: 8 },
+      { width: 20, height: 205, subdivisions: 12 },
       this.scene,
     );
     road.position.set(0, 0.08, -115);
@@ -772,15 +972,15 @@ export class BabylonHelmsWorld {
     for (const side of [-1, 1]) {
       const curb = BABYLON.MeshBuilder.CreateBox(
         `roadCurb_${side}`,
-        { width: 1.3, height: 0.7, depth: 195 },
+        { width: 1.35, height: 0.75, depth: 195 },
         this.scene,
       );
-      curb.position.set(side * 10.4, 0.35, -115);
+      curb.position.set(side * 10.4, 0.36, -115);
       curb.material = cliffMat;
       curb.receiveShadows = true;
     }
 
-    // Spiked Wooden Cheval-de-Frise Siege Barricades along the Road Margins
+    // Spiked Wooden Cheval-de-Frise Siege Barricades
     const barricadeCoords = [
       { x: -8.2, z: -36, rotY: 0.25 },
       { x: 8.2, z: -36, rotY: -0.25 },
@@ -826,6 +1026,24 @@ export class BabylonHelmsWorld {
       }
     });
 
+    // Rolling Low-Lying Canyon Ground Mist Banks
+    const mistMat = new BABYLON.StandardMaterial("canyonMistMat", this.scene);
+    mistMat.emissiveColor = new BABYLON.Color3(0.18, 0.28, 0.42);
+    mistMat.alpha = 0.08;
+    mistMat.disableLighting = true;
+
+    for (let m = 0; m < 10; m++) {
+      const mist = BABYLON.MeshBuilder.CreateDisc(
+        `canyonMist_${m}`,
+        { radius: 9 + (m % 4) * 2.5, tessellation: 16 },
+        this.scene,
+      );
+      mist.rotation.x = Math.PI / 2;
+      mist.position.set(((m % 2) - 0.5) * 8, 0.45 + (m % 3) * 0.25, -34 - m * 14);
+      mist.material = mistMat;
+      this.mistClouds.push(mist);
+    }
+
     for (let z = -32; z >= -195; z -= 14) {
       for (const side of [-1, 1]) {
         const h1 = this.hash(z, side);
@@ -836,16 +1054,16 @@ export class BabylonHelmsWorld {
         );
         boulder.position.set(side * (13.5 + h1 * 4.5), 1.0, z + h1 * 5);
         boulder.rotation.set(h1 * 2, h1 * 4, h1);
-        boulder.material = valleyMat;
+        boulder.material = cliffMat;
         boulder.receiveShadows = true;
       }
     }
   }
 
   private buildGarrisonArchers(
-    ironMat: BABYLON.StandardMaterial,
-    brassMat: BABYLON.StandardMaterial,
-    woodMat: BABYLON.StandardMaterial,
+    ironMat: BABYLON.PBRMaterial,
+    brassMat: BABYLON.PBRMaterial,
+    woodMat: BABYLON.PBRMaterial,
   ) {
     const cloakMat = new BABYLON.StandardMaterial("sentinelCloakMat", this.scene);
     cloakMat.diffuseColor = new BABYLON.Color3(0.12, 0.2, 0.34);
@@ -857,7 +1075,6 @@ export class BabylonHelmsWorld {
       const root = new BABYLON.TransformNode(`sentinel_${idx}`, this.scene);
       const pos = new BABYLON.Vector3(ax, this.wallParapetY + 0.4, -6.1);
       root.position.copyFrom(pos);
-      // Face slightly inward toward the central canyon road
       root.rotation.y = Math.PI + (ax > 0 ? 0.12 : -0.12);
 
       const torso = BABYLON.MeshBuilder.CreateCylinder(
@@ -889,7 +1106,7 @@ export class BabylonHelmsWorld {
 
       const bowArm = new BABYLON.TransformNode(`sBowArm_${idx}`, this.scene);
       bowArm.position.set(0.32, 1.45, 0.25);
-      bowArm.rotation.x = 0.35; // Aiming down into the canyon
+      bowArm.rotation.x = 0.35;
       bowArm.parent = root;
 
       const bow = BABYLON.MeshBuilder.CreateTorus(
@@ -912,7 +1129,6 @@ export class BabylonHelmsWorld {
   }
 
   public spawnPowderBarrels() {
-    // Clear existing barrels first
     for (const b of this.powderBarrels) {
       b.root.dispose();
     }
@@ -937,7 +1153,7 @@ export class BabylonHelmsWorld {
 
       const cask = BABYLON.MeshBuilder.CreateCylinder(
         `cask_${id}`,
-        { diameterTop: 1.05, diameterBottom: 1.05, height: 1.45, tessellation: 14 },
+        { diameterTop: 1.05, diameterBottom: 1.05, height: 1.45, tessellation: 16 },
         this.scene,
       );
       cask.position.y = 0.72;
@@ -945,21 +1161,19 @@ export class BabylonHelmsWorld {
       cask.parent = root;
       this.shadowGenerator.addShadowCaster(cask);
 
-      // Crimson Alchemical Hazard Belly Band
       const band = BABYLON.MeshBuilder.CreateCylinder(
         `caskBand_${id}`,
-        { diameterTop: 1.12, diameterBottom: 1.12, height: 0.38, tessellation: 14 },
+        { diameterTop: 1.12, diameterBottom: 1.12, height: 0.38, tessellation: 16 },
         this.scene,
       );
       band.position.y = 0.72;
       band.material = this.barrelBandMat;
       band.parent = root;
 
-      // Top & Bottom Iron Hoops
       for (const hy of [0.22, 1.22]) {
         const hoop = BABYLON.MeshBuilder.CreateTorus(
           `caskHoop_${id}_${hy}`,
-          { diameter: 1.08, thickness: 0.08, tessellation: 14 },
+          { diameter: 1.08, thickness: 0.08, tessellation: 16 },
           this.scene,
         );
         hoop.position.y = hy;
@@ -967,7 +1181,6 @@ export class BabylonHelmsWorld {
         hoop.parent = root;
       }
 
-      // Glowing Fuse Ember on top so the player can snipe it from the watchtower
       const fuse = BABYLON.MeshBuilder.CreateSphere(
         `caskFuse_${id}`,
         { diameter: 0.32, segments: 8 },
@@ -988,9 +1201,9 @@ export class BabylonHelmsWorld {
     });
   }
 
-  private buildBraziers(ironMat: BABYLON.StandardMaterial) {
+  private buildBraziers(ironMat: BABYLON.PBRMaterial) {
     const flameMat = new BABYLON.StandardMaterial("brazierFlameMat", this.scene);
-    flameMat.emissiveColor = new BABYLON.Color3(1.0, 0.48, 0.08);
+    flameMat.emissiveColor = new BABYLON.Color3(1.0, 0.5, 0.09);
     flameMat.diffuseColor = new BABYLON.Color3(1.0, 0.65, 0.15);
 
     const emberMat = new BABYLON.StandardMaterial("brazierEmberMat", this.scene);
@@ -1001,16 +1214,16 @@ export class BabylonHelmsWorld {
       { x: -9.5, y: this.wallParapetY + 0.5, z: -6.2, range: 22 },
       { x: 9.5, y: this.wallParapetY + 0.5, z: -6.2, range: 22 },
       { x: 20, y: this.wallParapetY + 0.5, z: -6.2, range: 22 },
-      { x: -11.0, y: 1.4, z: -30, range: 32 },
-      { x: 11.0, y: 1.4, z: -30, range: 32 },
-      { x: -11.0, y: 1.4, z: -52, range: 34 },
-      { x: 11.0, y: 1.4, z: -52, range: 34 },
-      { x: -11.0, y: 1.4, z: -76, range: 34 },
-      { x: 11.0, y: 1.4, z: -76, range: 34 },
-      { x: -11.0, y: 1.4, z: -102, range: 34 },
-      { x: 11.0, y: 1.4, z: -102, range: 34 },
-      { x: -11.0, y: 1.4, z: -130, range: 34 },
-      { x: 11.0, y: 1.4, z: -130, range: 34 },
+      { x: -11.0, y: 1.4, z: -30, range: 34 },
+      { x: 11.0, y: 1.4, z: -30, range: 34 },
+      { x: -11.0, y: 1.4, z: -52, range: 36 },
+      { x: 11.0, y: 1.4, z: -52, range: 36 },
+      { x: -11.0, y: 1.4, z: -76, range: 36 },
+      { x: 11.0, y: 1.4, z: -76, range: 36 },
+      { x: -11.0, y: 1.4, z: -102, range: 36 },
+      { x: 11.0, y: 1.4, z: -102, range: 36 },
+      { x: -11.0, y: 1.4, z: -130, range: 36 },
+      { x: 11.0, y: 1.4, z: -130, range: 36 },
     ];
 
     brazierCoords.forEach((b, idx) => {
@@ -1058,17 +1271,14 @@ export class BabylonHelmsWorld {
         );
         pt.diffuse = new BABYLON.Color3(1.0, 0.58, 0.18);
         pt.specular = new BABYLON.Color3(1.0, 0.65, 0.25);
-        pt.intensity = 1.25;
+        pt.intensity = 1.35;
         pt.range = b.range;
         this.torchLights.push(pt);
       }
     });
   }
 
-  private buildTurretSockets(
-    brassMat: BABYLON.StandardMaterial,
-    trimMat: BABYLON.StandardMaterial,
-  ) {
+  private buildTurretSockets(brassMat: BABYLON.PBRMaterial, trimMat: BABYLON.PBRMaterial) {
     this.turretSockets = [
       {
         id: 0,
@@ -1111,9 +1321,6 @@ export class BabylonHelmsWorld {
       pad.position.copyFrom(s.pos);
       pad.material = trimMat;
 
-      const ringMat = new BABYLON.StandardMaterial(`socketRingMat_${s.id}`, this.scene);
-      ringMat.diffuseColor = new BABYLON.Color3(0.75, 0.55, 0.15);
-      ringMat.emissiveColor = new BABYLON.Color3(0.35, 0.24, 0.05);
       const ring = BABYLON.MeshBuilder.CreateTorus(
         `socketRing_${s.id}`,
         { diameter: 3.1, thickness: 0.14, tessellation: 24 },
@@ -1121,20 +1328,19 @@ export class BabylonHelmsWorld {
       );
       ring.position.set(s.pos.x, s.pos.y + 0.2, s.pos.z);
       ring.material = brassMat;
-      s.ringMat = ringMat;
     }
   }
 
   private buildRain() {
     const rainMat = new BABYLON.StandardMaterial("rainMat", this.scene);
-    rainMat.emissiveColor = new BABYLON.Color3(0.48, 0.62, 0.78);
+    rainMat.emissiveColor = new BABYLON.Color3(0.52, 0.68, 0.85);
     rainMat.alpha = 0.24;
     rainMat.disableLighting = true;
 
-    for (let i = 0; i < 105; i++) {
+    for (let i = 0; i < 110; i++) {
       const drop = BABYLON.MeshBuilder.CreateCylinder(
         `rain_${i}`,
-        { diameter: 0.025, height: 2.2, tessellation: 4 },
+        { diameter: 0.024, height: 2.3, tessellation: 4 },
         this.scene,
       );
       drop.position.set(
@@ -1147,23 +1353,18 @@ export class BabylonHelmsWorld {
       this.rainLines.push(drop);
     }
 
-    // Rain splash ripples on the wet cobblestone road
     const rippleMat = new BABYLON.StandardMaterial("rippleMat", this.scene);
-    rippleMat.emissiveColor = new BABYLON.Color3(0.55, 0.68, 0.85);
-    rippleMat.alpha = 0.28;
+    rippleMat.emissiveColor = new BABYLON.Color3(0.58, 0.72, 0.9);
+    rippleMat.alpha = 0.26;
     rippleMat.disableLighting = true;
 
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 26; i++) {
       const ring = BABYLON.MeshBuilder.CreateTorus(
         `rainRipple_${i}`,
-        { diameter: 0.45, thickness: 0.03, tessellation: 12 },
+        { diameter: 0.48, thickness: 0.03, tessellation: 14 },
         this.scene,
       );
-      ring.position.set(
-        (Math.random() - 0.5) * 17,
-        0.11,
-        -28 - Math.random() * 95,
-      );
+      ring.position.set((Math.random() - 0.5) * 17, 0.11, -28 - Math.random() * 95);
       ring.scaling.setAll(Math.random());
       ring.material = rippleMat;
       this.rainRipples.push(ring);
@@ -1180,14 +1381,23 @@ export class BabylonHelmsWorld {
       f.scaling.set(s, 0.85 + Math.cos(time * 3.2 + i) * 0.22, s);
     }
     for (let i = 0; i < this.torchLights.length; i++) {
-      this.torchLights[i].intensity = 1.25 + Math.sin(time * 2.2 + i) * 0.22;
+      this.torchLights[i].intensity = 1.35 + Math.sin(time * 2.2 + i) * 0.24;
     }
     for (let i = 0; i < this.bannerMeshes.length; i++) {
       this.bannerMeshes[i].rotation.x = Math.sin(time * 1.1 + i) * 0.11;
       this.bannerMeshes[i].rotation.z = Math.cos(time * 0.8 + i) * 0.04;
     }
 
-    // Pulse powder barrel fuses
+    // Drift canyon ground mist gently toward the fortress
+    for (let i = 0; i < this.mistClouds.length; i++) {
+      const m = this.mistClouds[i];
+      m.position.x += Math.sin(time * 0.25 + i) * dt * 0.8;
+      m.position.z += dt * 1.4;
+      if (m.position.z > -26) {
+        m.position.z = -175;
+      }
+    }
+
     for (const b of this.powderBarrels) {
       if (!b.detonated) {
         const p = 0.85 + Math.sin(time * 5 + b.id) * 0.3;
@@ -1206,7 +1416,7 @@ export class BabylonHelmsWorld {
 
     for (const rp of this.rainRipples) {
       const nextScale = rp.scaling.x + dt * 1.8;
-      if (nextScale > 1.3) {
+      if (nextScale > 1.35) {
         rp.scaling.setAll(0.15);
         rp.position.x = (Math.random() - 0.5) * 17;
         rp.position.z = -28 - Math.random() * 95;
@@ -1217,7 +1427,7 @@ export class BabylonHelmsWorld {
 
     this.lightningTimer -= dt;
     if (this.lightningTimer <= 0) {
-      this.lightningLight.intensity = 2.6;
+      this.lightningLight.intensity = 2.8;
       this.lightningBoltMesh.visibility = 1.0;
       this.lightningBoltMesh.position.x = (Math.random() - 0.5) * 70;
       this.lightningTimer = 9 + Math.random() * 11;

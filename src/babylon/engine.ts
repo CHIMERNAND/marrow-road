@@ -11,8 +11,15 @@ import {
   type BoltAmmoType,
   type ZombieType,
   type CombatCallout,
+  type FloatingDamage,
 } from "@/helmsdeep/types";
 import type { AbilityId, AbilityState, HelmsGameState } from "@/helmsdeep/engine";
+
+interface ActiveFloatingDamage extends FloatingDamage {
+  worldPos: BABYLON.Vector3;
+  age: number;
+  maxAge: number;
+}
 
 export class BabylonHelmsEngine {
   public engine: BABYLON.Engine;
@@ -39,11 +46,14 @@ export class BabylonHelmsEngine {
   private waveTimer = 0;
   private intermissionTimer = 0;
   private hornStunTimer = 0;
+  private bulletTimeTimer = 0;
 
   private combo = 0;
   private comboTimer = 0;
   private callouts: CombatCallout[] = [];
   private nextCalloutId = 1;
+  private floatingDamages: ActiveFloatingDamage[] = [];
+  private nextDamageId = 1;
 
   private abilities: AbilityState[] = [
     {
@@ -104,6 +114,7 @@ export class BabylonHelmsEngine {
     this.world = new BabylonHelmsWorld(this.scene);
     this.horde = new BabylonZombieHorde(this.scene, this.world.shadowGenerator);
     this.player = new BabylonHelmsPlayer(this.scene);
+    this.world.setupPostPipeline(this.player.camera);
     this.turrets = new BabylonTurretManager(this.scene);
     this.vfx = new BabylonHelmsVFX(this.scene);
 
@@ -127,13 +138,16 @@ export class BabylonHelmsEngine {
       combo: 0,
       comboTimer: 0,
       powderBarrelsRemaining: this.world.powderBarrels.filter((b) => !b.detonated).length,
+      zoomLevel: this.player.zoomLevel,
+      bulletTimeActive: false,
+      reticleTarget: null,
+      floatingDamages: [],
       callouts: [],
       abilities: this.abilities,
       selectedSocketId: null,
       turretSockets: this.getSocketsState(),
     };
 
-    // Pre-build two default turrets on the West & East Gate Bastions
     const leftBastion = this.world.turretSockets[1];
     if (leftBastion) {
       this.turrets.buildTurret(leftBastion.id, leftBastion.pos, "repeater");
@@ -161,6 +175,52 @@ export class BabylonHelmsEngine {
     }, 2400);
   }
 
+  private spawnFloatingDamage(
+    worldPos: BABYLON.Vector3,
+    text: string,
+    isCrit: boolean,
+    color = "#fde047",
+  ) {
+    const projected = this.projectToPercent(worldPos);
+    if (!projected) return;
+    this.floatingDamages.push({
+      id: this.nextDamageId++,
+      worldPos: worldPos.clone(),
+      x: projected.x,
+      y: projected.y,
+      text,
+      isCrit,
+      color,
+      age: 0,
+      maxAge: 0.85,
+    });
+    if (this.floatingDamages.length > 14) {
+      this.floatingDamages.shift();
+    }
+  }
+
+  private projectToPercent(worldPos: BABYLON.Vector3): { x: number; y: number } | null {
+    const w = this.engine.getRenderWidth();
+    const h = this.engine.getRenderHeight();
+    if (w <= 0 || h <= 0) return null;
+
+    const screen = BABYLON.Vector3.Project(
+      worldPos,
+      BABYLON.Matrix.IdentityReadOnly,
+      this.scene.getTransformMatrix(),
+      this.player.camera.viewport.toGlobal(w, h),
+    );
+    if (screen.z < 0 || screen.z > 1) return null;
+    return {
+      x: (screen.x / w) * 100,
+      y: (screen.y / h) * 100,
+    };
+  }
+
+  private triggerBulletTime(duration = 0.36) {
+    this.bulletTimeTimer = Math.max(this.bulletTimeTimer, duration);
+  }
+
   public getWeaponUpgradeCost(): number {
     return Math.round(120 * Math.pow(1.45, (this.player.stats.weaponLevel ?? 1) - 1));
   }
@@ -176,7 +236,7 @@ export class BabylonHelmsEngine {
     this.player.stats.damage = Math.round(this.player.stats.damage * 1.25);
     this.player.stats.fireRate = Number((this.player.stats.fireRate * 1.15).toFixed(2));
     if (this.player.stats.weaponLevel % 2 === 0) {
-      this.player.stats.pierce += 1;
+      this.player.stats.pierce = (this.player.stats.pierce ?? 1) + 1;
     }
 
     this.audio.playChime();
@@ -223,26 +283,26 @@ export class BabylonHelmsEngine {
     this.state.wave = waveNum;
     this.state.waveCountdown = this.intermissionTimer;
 
-    // Restock road powder barrels each wave
     this.world.spawnPowderBarrels();
 
     const runnerCount = 4 + waveNum * 3;
     const shamblerCount = 6 + waveNum * 5;
+    const sapperCount = 1 + Math.floor(waveNum * 1.2);
     const bruteCount = Math.max(1, Math.floor((waveNum - 1) * 2));
     const bansheeCount = Math.max(1, Math.floor((waveNum - 1) * 1.5));
     const warlordCount = waveNum >= 2 ? 1 : 0;
 
     const totalZombies =
-      runnerCount + shamblerCount + bruteCount + bansheeCount + warlordCount;
+      runnerCount + shamblerCount + sapperCount + bruteCount + bansheeCount + warlordCount;
     this.state.zombiesRemainingInWave = totalZombies;
 
     if (startImmediately) {
       const vanguard: Array<{ type: ZombieType; x: number; z: number }> = [
         { type: "runner", x: -4.8, z: -39 },
         { type: "shambler", x: 4.5, z: -47 },
-        { type: "runner", x: -1.6, z: -56 },
-        { type: "brute", x: 1.8, z: -67 },
-        { type: "shambler", x: -5.8, z: -78 },
+        { type: "sapper", x: -1.6, z: -57 },
+        { type: "brute", x: 2.2, z: -68 },
+        { type: "shambler", x: -5.6, z: -79 },
         { type: "banshee", x: 5.2, z: -90 },
         { type: "warlord", x: 0.0, z: -104 },
       ];
@@ -254,16 +314,20 @@ export class BabylonHelmsEngine {
     }
 
     const waveDuration = Math.min(42, 16 + waveNum * 3.0);
-    const step = waveDuration / Math.max(1, totalZombies - (startImmediately ? 4 : 0));
+    const step = waveDuration / Math.max(1, totalZombies - (startImmediately ? 5 : 0));
 
     let time = startImmediately ? 2.5 : 0;
-    for (let i = startImmediately ? 2 : 0; i < runnerCount; i++) {
+    for (let i = startImmediately ? 1 : 0; i < runnerCount; i++) {
       this.waveQueue.push({ type: "runner", delay: time + Math.random() * 1.8 });
       time += step * 0.75;
     }
     for (let i = startImmediately ? 2 : 0; i < shamblerCount; i++) {
       this.waveQueue.push({ type: "shambler", delay: time + Math.random() * 2.2 });
       time += step;
+    }
+    for (let i = startImmediately ? 1 : 0; i < sapperCount; i++) {
+      this.waveQueue.push({ type: "sapper", delay: time + Math.random() * 2.5 });
+      time += step * 1.1;
     }
     for (let i = 0; i < bruteCount; i++) {
       this.waveQueue.push({ type: "brute", delay: time + Math.random() * 3 });
@@ -294,10 +358,23 @@ export class BabylonHelmsEngine {
     this.engine.runRenderLoop(() => {
       if (!this.isRunning) return;
       const now = performance.now();
-      const dt = Math.min((now - this.lastTime) / 1000, 0.1);
+      const rawDt = Math.min((now - this.lastTime) / 1000, 0.1);
       this.lastTime = now;
 
-      this.update(dt);
+      let timeScale = 1.0;
+      if (this.bulletTimeTimer > 0) {
+        this.bulletTimeTimer = Math.max(0, this.bulletTimeTimer - rawDt);
+        timeScale = 0.34;
+      }
+
+      if (this.world.pipeline) {
+        const targetAberration =
+          this.bulletTimeTimer > 0 ? 18 : this.player.isAiming ? 6.5 : 3.2;
+        this.world.pipeline.chromaticAberration.aberrationAmount +=
+          (targetAberration - this.world.pipeline.chromaticAberration.aberrationAmount) * 0.2;
+      }
+
+      this.update(rawDt * timeScale, rawDt);
       this.scene.render();
     });
   }
@@ -307,13 +384,52 @@ export class BabylonHelmsEngine {
     this.engine.stopRenderLoop();
   }
 
+  private detonateSapperExplosion(pos: BABYLON.Vector3) {
+    this.audio.playExplosion();
+    this.player.addCameraShake(0.55);
+    this.triggerBulletTime(0.32);
+    this.vfx.spawnExplosion(pos, 9.0);
+    this.vfx.spawnGroundFire(new BABYLON.Vector3(pos.x, 0, pos.z), 5.2, 6.0, 60);
+
+    let chainKills = 0;
+    for (const other of this.horde.zombies) {
+      if (other.dead) continue;
+      const d = BABYLON.Vector3.Distance(pos, other.pos);
+      if (d <= 9.5) {
+        const dmg = Math.round(240 * Math.max(0.45, 1 - d / 11));
+        other.hp -= dmg;
+        other.burnTimer = 4.5;
+        other.burnDps = 22;
+        other.staggerTimer = 0.35;
+        this.spawnFloatingDamage(
+          other.pos.add(new BABYLON.Vector3(0, 3.2, 0)),
+          `${dmg}`,
+          true,
+          "#fb923c",
+        );
+        if (other.hp <= 0) {
+          other.dead = true;
+          chainKills++;
+          this.handleZombieKill(other, false);
+        }
+      }
+    }
+
+    this.addCallout(
+      "SAPPER BOMB DETONATED!",
+      chainKills > 0 ? `${chainKills} Nearby Undead Vaporized!` : "Horde Blasted!",
+      "orange",
+    );
+  }
+
   private detonatePowderBarrel(barrel: PowderBarrel) {
     if (barrel.detonated) return;
     barrel.detonated = true;
     barrel.root.setEnabled(false);
 
     this.audio.playExplosion();
-    this.player.addCameraShake(0.65);
+    this.player.addCameraShake(0.68);
+    this.triggerBulletTime(0.36);
     this.vfx.spawnExplosion(barrel.pos, 10.5);
     this.vfx.spawnGroundFire(new BABYLON.Vector3(barrel.pos.x, 0, barrel.pos.z), 6.2, 7.0, 65);
 
@@ -323,11 +439,18 @@ export class BabylonHelmsEngine {
       const d = BABYLON.Vector3.Distance(barrel.pos, z.pos);
       if (d <= 11.5) {
         const falloff = 1 - d / 13.0;
-        z.hp -= Math.round(280 * Math.max(0.45, falloff));
+        const dmg = Math.round(280 * Math.max(0.45, falloff));
+        z.hp -= dmg;
         z.burnTimer = 5.0;
         z.burnDps = 25;
         z.staggerTimer = 0.35;
-        z.pos.z -= 2.2; // Knockback down the canyon
+        z.pos.z -= 2.2;
+        this.spawnFloatingDamage(
+          z.pos.add(new BABYLON.Vector3(0, 3.4, 0)),
+          `${dmg} BOOM!`,
+          true,
+          "#fb923c",
+        );
 
         if (z.hp <= 0) {
           z.dead = true;
@@ -343,7 +466,6 @@ export class BabylonHelmsEngine {
       "orange",
     );
 
-    // Chain-reaction nearby powder barrels within 13m
     for (const other of this.world.powderBarrels) {
       if (!other.detonated && BABYLON.Vector3.Distance(barrel.pos, other.pos) <= 13.5) {
         setTimeout(() => {
@@ -369,22 +491,21 @@ export class BabylonHelmsEngine {
     }
   }
 
-  private update(dt: number) {
-    // 1. Strafe (A/D) & Elevation adjustment (W/S or Up/Down)
+  private update(dt: number, realDt: number) {
+    // Player camera & controls stay crisp even during bullet-time!
     if (this.keysDown.has("KeyA") || this.keysDown.has("ArrowLeft")) {
-      this.player.strafe(-15 * dt);
+      this.player.strafe(-15 * realDt);
     }
     if (this.keysDown.has("KeyD") || this.keysDown.has("ArrowRight")) {
-      this.player.strafe(15 * dt);
+      this.player.strafe(15 * realDt);
     }
     if (this.keysDown.has("KeyW") || this.keysDown.has("ArrowUp")) {
-      this.player.elevate(8 * dt);
+      this.player.elevate(8 * realDt);
     }
     if (this.keysDown.has("KeyS") || this.keysDown.has("ArrowDown")) {
-      this.player.elevate(-8 * dt);
+      this.player.elevate(-8 * realDt);
     }
 
-    // 2. Firing Crossbow
     if (this.isMouseDown && this.player.canShoot()) {
       const proj = this.player.shoot();
       if (proj) {
@@ -392,16 +513,15 @@ export class BabylonHelmsEngine {
       }
     }
 
-    // 3. Ability Cooldowns & Combo Decay
     for (const ab of this.abilities) {
       if (ab.cooldown > 0) {
-        ab.cooldown = Math.max(0, ab.cooldown - dt);
+        ab.cooldown = Math.max(0, ab.cooldown - realDt);
         ab.ready = ab.cooldown <= 0;
       }
     }
 
     if (this.comboTimer > 0) {
-      this.comboTimer = Math.max(0, this.comboTimer - dt);
+      this.comboTimer = Math.max(0, this.comboTimer - realDt);
       if (this.comboTimer <= 0) {
         this.combo = 0;
       }
@@ -412,9 +532,24 @@ export class BabylonHelmsEngine {
     }
 
     if (this.hitmarkerTimer > 0) {
-      this.hitmarkerTimer -= dt;
+      this.hitmarkerTimer -= realDt;
       if (this.hitmarkerTimer <= 0) {
         this.currentHitmarker = null;
+      }
+    }
+
+    // Update Floating 3D Damage Numbers
+    for (let i = this.floatingDamages.length - 1; i >= 0; i--) {
+      const fd = this.floatingDamages[i];
+      fd.age += realDt;
+      fd.worldPos.y += realDt * 2.4;
+      const p = this.projectToPercent(fd.worldPos);
+      if (p) {
+        fd.x = p.x;
+        fd.y = p.y;
+      }
+      if (fd.age >= fd.maxAge) {
+        this.floatingDamages.splice(i, 1);
       }
     }
 
@@ -423,9 +558,8 @@ export class BabylonHelmsEngine {
       this.audio.playThunder();
     }
 
-    // 4. Wave Spawning
     if (this.state.status === "preparing") {
-      this.intermissionTimer -= dt;
+      this.intermissionTimer -= realDt;
       this.state.waveCountdown = Math.max(0, Math.ceil(this.intermissionTimer));
       if (this.intermissionTimer <= 0) {
         this.state.status = "wave";
@@ -451,7 +585,6 @@ export class BabylonHelmsEngine {
       }
     }
 
-    // 5. Zombie Horde Movement, Status Effects & Necro Rituals
     if (this.hornStunTimer <= 0) {
       this.horde.update(
         dt,
@@ -479,7 +612,6 @@ export class BabylonHelmsEngine {
       );
     }
 
-    // 6. Ground Fires damage tick
     for (const gf of this.vfx.groundFires) {
       for (const z of this.horde.zombies) {
         if (z.dead) continue;
@@ -495,7 +627,6 @@ export class BabylonHelmsEngine {
       }
     }
 
-    // 7. Player Projectiles, Elemental Effects, Shield Blocking & Barrel Detonations
     this.player.update(
       dt,
       this.horde.zombies,
@@ -504,7 +635,6 @@ export class BabylonHelmsEngine {
         let finalDmg = dmg;
         z.staggerTimer = 0.22;
 
-        // Check Shield Block on non-headshot body hits
         if (!isHeadshot && z.hasShield && z.shieldHp > 0 && ammoType !== "fire") {
           z.shieldHp -= dmg * 0.75;
           finalDmg = Math.round(dmg * 0.45);
@@ -512,6 +642,7 @@ export class BabylonHelmsEngine {
           this.vfx.spawnHitSparks(hitPos, 10);
           this.currentHitmarker = "shield";
           this.hitmarkerTimer = 0.25;
+          this.spawnFloatingDamage(hitPos, `${finalDmg} BLOCKED`, false, "#7dd3fc");
 
           if (z.shieldHp <= 0) {
             z.hasShield = false;
@@ -522,7 +653,6 @@ export class BabylonHelmsEngine {
             this.state.gold += 20;
           }
         } else if (isHeadshot) {
-          // Frost Shatter bonus if target was frozen
           if (z.frostTimer > 0) {
             finalDmg = Math.round(finalDmg * 1.45);
             this.audio.playFrostShatter();
@@ -535,9 +665,11 @@ export class BabylonHelmsEngine {
           this.currentHitmarker = "headshot";
           this.hitmarkerTimer = 0.35;
           this.player.addCameraShake(0.14);
+          this.spawnFloatingDamage(hitPos, `${finalDmg} CRIT!`, true, "#f87171");
 
           const shotDist = Math.round(Math.abs(z.pos.z - this.player.camera.position.z));
-          if (shotDist >= 68) {
+          if (shotDist >= 65) {
+            this.triggerBulletTime(0.32);
             this.addCallout(`EAGLE-EYE LONGSHOT! (${shotDist}m)`, "+25 Marksman Gold", "gold");
             this.state.gold += 25;
           }
@@ -546,9 +678,9 @@ export class BabylonHelmsEngine {
           this.vfx.spawnHitSparks(hitPos, 6);
           this.currentHitmarker = "body";
           this.hitmarkerTimer = 0.2;
+          this.spawnFloatingDamage(hitPos, `${finalDmg}`, false, "#fde047");
         }
 
-        // Apply Elemental Ammo Effects
         if (ammoType === "fire") {
           z.burnTimer = 5.0;
           z.burnDps = 26;
@@ -582,6 +714,9 @@ export class BabylonHelmsEngine {
         if (z.hp <= 0 && !z.dead) {
           z.dead = true;
           this.handleZombieKill(z, isHeadshot);
+          if (z.type === "sapper") {
+            this.detonateSapperExplosion(z.pos.clone());
+          }
         }
       },
       (barrel) => {
@@ -589,7 +724,6 @@ export class BabylonHelmsEngine {
       },
     );
 
-    // 8. Garrison Archers & Turret Defense
     this.updateGarrisonArchers(dt);
     this.turrets.update(
       dt,
@@ -621,6 +755,7 @@ export class BabylonHelmsEngine {
     this.audio.playChime();
 
     if (zombie.type === "warlord") {
+      this.triggerBulletTime(0.45);
       this.addCallout("SIEGE WARLORD SLAIN!", `+${reward} Gold Bounty`, "red");
     } else if (this.combo === 5 || this.combo === 10 || this.combo === 15) {
       this.addCallout(`${this.combo}x KILLSTREAK!`, `${comboMul.toFixed(2)}x Gold Multiplier`, "gold");
@@ -632,6 +767,20 @@ export class BabylonHelmsEngine {
     this.state.maxGateHp = this.world.maxGateHealth;
     this.state.zombiesAlive = this.horde.zombies.filter((z) => !z.dead).length;
     this.state.isAiming = this.player.isAiming;
+    this.state.zoomLevel = this.player.zoomLevel;
+    this.state.bulletTimeActive = this.bulletTimeTimer > 0;
+    this.state.reticleTarget = this.player.scanReticleTarget(
+      this.horde.zombies,
+      this.world.powderBarrels,
+    );
+    this.state.floatingDamages = this.floatingDamages.map((fd) => ({
+      id: fd.id,
+      x: fd.x,
+      y: fd.y,
+      text: fd.text,
+      isCrit: fd.isCrit,
+      color: fd.color,
+    }));
     this.state.hitmarker = this.currentHitmarker;
     this.state.currentAmmo = this.player.currentAmmo;
     this.state.weaponLevel = this.player.stats.weaponLevel;
@@ -731,8 +880,7 @@ export class BabylonHelmsEngine {
           const startPos = archer
             ? archer.pos.clone()
             : new BABYLON.Vector3((Math.random() - 0.5) * 35, 24, -6.5);
-          const target =
-            alive.length > 0 ? alive[i % alive.length] : null;
+          const target = alive.length > 0 ? alive[i % alive.length] : null;
           if (target && !target.dead) {
             this.turrets.spawnDirectBolt(startPos, target, 42, true);
           }
@@ -806,6 +954,11 @@ export class BabylonHelmsEngine {
     if (code === "KeyQ" || code === "Tab") this.cycleAmmo();
     if (code === "KeyG") this.upgradeCrossbow();
     if (code === "KeyR") this.repairGate();
+    if (code === "KeyZ") {
+      this.player.cycleEnhanceZoom();
+      this.audio.playAmmoSwitch();
+      this.syncState();
+    }
     if (code === "KeyV") {
       this.player.currentY = this.player.currentY > 29 ? 26.0 : 32.0;
     }
@@ -817,6 +970,14 @@ export class BabylonHelmsEngine {
 
   public onMouseMove(dx: number, dy: number) {
     this.player.look(dx, dy);
+  }
+
+  public onWheel(deltaY: number) {
+    if (!this.player.isAiming && deltaY < 0) {
+      this.player.isAiming = true;
+    }
+    this.player.adjustZoom(deltaY < 0 ? 0.5 : -0.5);
+    this.syncState();
   }
 
   public onMouseDown(button: number) {

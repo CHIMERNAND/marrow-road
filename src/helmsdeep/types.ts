@@ -1,4 +1,10 @@
-export type ZombieType = "runner" | "shambler" | "brute" | "banshee" | "warlord";
+export type ZombieType =
+  | "runner"
+  | "shambler"
+  | "brute"
+  | "banshee"
+  | "warlord"
+  | "sapper";
 
 export type BoltAmmoType = "bodkin" | "fire" | "frost" | "scatter";
 
@@ -107,4 +113,21 @@ export type CombatCallout = {
   text: string;
   subtext?: string;
   color: "gold" | "red" | "cyan" | "orange" | "purple";
+};
+
+export type FloatingDamage = {
+  id: number;
+  x: number; // Normalized 0..100 screen percentage
+  y: number; // Normalized 0..100 screen percentage
+  text: string;
+  isCrit: boolean;
+  color: string;
+};
+
+export type ReticleTargetInfo = {
+  label: string;
+  distance: number;
+  hp?: number;
+  maxHp?: number;
+  isHazard?: boolean;
 };

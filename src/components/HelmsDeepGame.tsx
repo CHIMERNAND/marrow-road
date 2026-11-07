@@ -108,6 +108,13 @@ export function HelmsDeepGame() {
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
 
+    const handleWheel = (e: WheelEvent) => {
+      if (document.pointerLockElement === canvas && engineRef.current) {
+        engineRef.current.onWheel(e.deltaY);
+      }
+    };
+    window.addEventListener("wheel", handleWheel, { passive: true });
+
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
     };
@@ -121,6 +128,7 @@ export function HelmsDeepGame() {
       window.removeEventListener("mouseup", handleMouseUp);
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      window.removeEventListener("wheel", handleWheel);
       canvas.removeEventListener("contextmenu", handleContextMenu);
       engine.destroy();
     };
@@ -208,22 +216,46 @@ export function HelmsDeepGame() {
 
       {/* Optical Zoom Vignette Mask when Aiming */}
       {gameState?.isAiming && (
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_35%,rgba(0,0,0,0.85)_82%)] ring-2 ring-amber-500/40" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_36%,rgba(0,0,0,0.88)_84%)] ring-2 ring-amber-400/50" />
       )}
 
-      {/* Reticle / Crosshair */}
+      {/* Bullet-Time Slow-Motion Edge Highlight */}
+      {gameState?.bulletTimeActive && (
+        <div className="pointer-events-none absolute inset-0 ring-4 ring-inset ring-cyan-400/60 bg-[radial-gradient(circle_at_center,transparent_60%,rgba(34,211,238,0.16)_100%)] transition-opacity" />
+      )}
+
+      {/* 3D World-Projected Floating Damage & Crit Numbers */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden z-10">
+        {gameState?.floatingDamages?.map((fd) => (
+          <div
+            key={fd.id}
+            style={{
+              left: `${fd.x}%`,
+              top: `${fd.y}%`,
+              color: fd.color,
+            }}
+            className={`absolute -translate-x-1/2 -translate-y-1/2 font-black tracking-wider drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] ${
+              fd.isCrit ? "text-base scale-110" : "text-xs"
+            }`}
+          >
+            {fd.text}
+          </div>
+        ))}
+      </div>
+
+      {/* Reticle / Crosshair + Optical Rangefinder Telemetry */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         {gameState?.isAiming ? (
-          <div className="relative w-36 h-36 flex items-center justify-center">
-            <div className="w-28 h-28 rounded-full border border-amber-400/60 flex items-center justify-center">
+          <div className="relative w-44 h-44 flex items-center justify-center">
+            <div className="w-34 h-34 rounded-full border border-amber-400/65 flex items-center justify-center shadow-[0_0_24px_rgba(245,158,11,0.2)]">
               <div className="w-1.5 h-1.5 rounded-full bg-amber-300 shadow-[0_0_8px_#f59e0b]" />
             </div>
-            <div className="absolute top-1 w-0.5 h-5 bg-amber-400/80" />
-            <div className="absolute bottom-1 w-0.5 h-5 bg-amber-400/80" />
-            <div className="absolute left-1 w-5 h-0.5 bg-amber-400/80" />
-            <div className="absolute right-1 w-5 h-0.5 bg-amber-400/80" />
-            <div className="absolute bottom-6 text-[10px] tracking-widest text-amber-300 font-mono font-bold">
-              SNIPER ZOOM
+            <div className="absolute top-1 w-0.5 h-6 bg-amber-400/80" />
+            <div className="absolute bottom-1 w-0.5 h-6 bg-amber-400/80" />
+            <div className="absolute left-1 w-6 h-0.5 bg-amber-400/80" />
+            <div className="absolute right-1 w-6 h-0.5 bg-amber-400/80" />
+            <div className="absolute -top-6 px-2 py-0.5 rounded bg-stone-950/75 border border-amber-400/40 text-[10px] tracking-widest text-amber-300 font-mono font-bold uppercase whitespace-nowrap">
+              ENHANCE {(gameState.zoomLevel || 2.4).toFixed(1)}x [SCROLL / Z]
             </div>
           </div>
         ) : (
@@ -236,6 +268,25 @@ export function HelmsDeepGame() {
             <div className="absolute -bottom-3 w-0.5 h-2 bg-amber-300/80" />
             <div className="absolute -left-3 w-2 h-0.5 bg-amber-300/80" />
             <div className="absolute -right-3 w-2 h-0.5 bg-amber-300/80" />
+          </div>
+        )}
+
+        {/* Live Crosshair Rangefinder & Target Vital Readout */}
+        {gameState?.reticleTarget && (
+          <div
+            className={`absolute translate-y-24 px-2.5 py-1 rounded-lg border backdrop-blur-md text-[10px] font-mono font-bold tracking-wider uppercase shadow-lg flex items-center gap-2 whitespace-nowrap ${
+              gameState.reticleTarget.isHazard
+                ? "bg-orange-950/85 border-orange-400/80 text-orange-200"
+                : "bg-stone-950/85 border-amber-400/50 text-amber-200"
+            }`}
+          >
+            <span>{gameState.reticleTarget.label}</span>
+            {gameState.reticleTarget.hp !== undefined && (
+              <span className="text-red-300">
+                {gameState.reticleTarget.hp}/{gameState.reticleTarget.maxHp} HP
+              </span>
+            )}
+            <span className="text-sky-300">{gameState.reticleTarget.distance}m</span>
           </div>
         )}
 

@@ -1,5 +1,9 @@
 import * as BABYLON from "@babylonjs/core";
-import type { BoltAmmoType, PlayerWeaponStats } from "@/helmsdeep/types";
+import type {
+  BoltAmmoType,
+  PlayerWeaponStats,
+  ReticleTargetInfo,
+} from "@/helmsdeep/types";
 import type { BabylonZombie } from "./horde";
 import type { PowderBarrel } from "./world";
 
@@ -15,6 +19,15 @@ export interface BabylonArrowProjectile {
   hitIds: Set<number>;
 }
 
+const ZOMBIE_LABELS: Record<string, string> = {
+  runner: "Feral Ghoul Berserker",
+  shambler: "Shielded Footman",
+  brute: "Armored Uruk Juggernaut",
+  banshee: "Barrow-Wraith Necromancer",
+  warlord: "Siege Warlord of Udûn",
+  sapper: "Alchemist Bomb-Sapper",
+};
+
 export class BabylonHelmsPlayer {
   public scene: BABYLON.Scene;
   public camera: BABYLON.FreeCamera;
@@ -26,13 +39,14 @@ export class BabylonHelmsPlayer {
   public pitch = -0.46;
   public yaw = 0;
   public isAiming = false;
+  public zoomLevel = 2.4; // Adjustable 1.8x .. 4.5x when aiming!
   public currentAmmo: BoltAmmoType = "bodkin";
 
   public stats: PlayerWeaponStats = {
-    damage: 55,
+    damage: 56,
     critMul: 2.8,
     fireRate: 2.6,
-    arrowSpeed: 112,
+    arrowSpeed: 115,
     pierce: 1,
     explosiveRadius: 0,
     weaponLevel: 1,
@@ -44,6 +58,8 @@ export class BabylonHelmsPlayer {
 
   private limbL!: BABYLON.Mesh;
   private limbR!: BABYLON.Mesh;
+  private crankWheelL!: BABYLON.Mesh;
+  private crankWheelR!: BABYLON.Mesh;
   private loadedBoltGroup!: BABYLON.TransformNode;
   private loadedBroadhead!: BABYLON.Mesh;
 
@@ -111,6 +127,24 @@ export class BabylonHelmsPlayer {
     return this.currentAmmo;
   }
 
+  public adjustZoom(delta: number) {
+    this.zoomLevel = Math.max(1.8, Math.min(4.5, Number((this.zoomLevel + delta).toFixed(1))));
+  }
+
+  public cycleEnhanceZoom() {
+    if (!this.isAiming) {
+      this.isAiming = true;
+      this.zoomLevel = 2.4;
+    } else if (this.zoomLevel < 3.4) {
+      this.zoomLevel = 3.5;
+    } else if (this.zoomLevel < 4.4) {
+      this.zoomLevel = 4.5;
+    } else {
+      this.isAiming = false;
+      this.zoomLevel = 2.4;
+    }
+  }
+
   public addCameraShake(amount: number) {
     this.shakeTrauma = Math.min(1.0, this.shakeTrauma + amount);
   }
@@ -118,85 +152,130 @@ export class BabylonHelmsPlayer {
   private buildCrossbowMesh(): BABYLON.TransformNode {
     const root = new BABYLON.TransformNode("crossbowRoot", this.scene);
 
-    const woodMat = new BABYLON.StandardMaterial("cbWoodMat", this.scene);
-    woodMat.diffuseColor = new BABYLON.Color3(0.24, 0.14, 0.08);
-    woodMat.specularColor = new BABYLON.Color3(0.15, 0.1, 0.06);
-    woodMat.specularPower = 24;
+    // PBR Oiled Walnut, Forged Damascus Steel & Brushed Brass
+    const woodMat = new BABYLON.PBRMaterial("cbWoodMat", this.scene);
+    woodMat.albedoColor = new BABYLON.Color3(0.26, 0.14, 0.07);
+    woodMat.metallic = 0.05;
+    woodMat.roughness = 0.45;
 
-    const steelMat = new BABYLON.StandardMaterial("cbSteelMat", this.scene);
-    steelMat.diffuseColor = new BABYLON.Color3(0.2, 0.23, 0.27);
-    steelMat.specularColor = new BABYLON.Color3(0.75, 0.8, 0.88);
-    steelMat.specularPower = 64;
+    const steelMat = new BABYLON.PBRMaterial("cbSteelMat", this.scene);
+    steelMat.albedoColor = new BABYLON.Color3(0.32, 0.36, 0.42);
+    steelMat.metallic = 0.92;
+    steelMat.roughness = 0.24;
 
-    const goldMat = new BABYLON.StandardMaterial("cbGoldMat", this.scene);
-    goldMat.diffuseColor = new BABYLON.Color3(0.58, 0.44, 0.15);
-    goldMat.specularColor = new BABYLON.Color3(0.85, 0.7, 0.3);
-    goldMat.specularPower = 48;
+    const goldMat = new BABYLON.PBRMaterial("cbGoldMat", this.scene);
+    goldMat.albedoColor = new BABYLON.Color3(0.82, 0.62, 0.22);
+    goldMat.metallic = 0.9;
+    goldMat.roughness = 0.26;
 
     const stringMat = new BABYLON.StandardMaterial("cbStringMat", this.scene);
-    stringMat.diffuseColor = new BABYLON.Color3(0.32, 0.28, 0.22);
+    stringMat.diffuseColor = new BABYLON.Color3(0.42, 0.36, 0.28);
 
+    // Carved Walnut Stock
     const stock = BABYLON.MeshBuilder.CreateBox(
       "cbStock",
-      { width: 0.048, height: 0.062, depth: 0.56 },
+      { width: 0.05, height: 0.064, depth: 0.58 },
       this.scene,
     );
     stock.position.set(0.34, -0.31, -0.58);
     stock.material = woodMat;
     stock.parent = root;
 
+    // Steel Flight Groove Rail
     const rail = BABYLON.MeshBuilder.CreateBox(
       "cbRail",
-      { width: 0.024, height: 0.012, depth: 0.52 },
+      { width: 0.026, height: 0.012, depth: 0.54 },
       this.scene,
     );
     rail.position.set(0.34, -0.275, -0.6);
     rail.material = steelMat;
     rail.parent = root;
 
+    // Brass Trigger Lock Housing + Optical Rangefinder Sight Ring
     const housing = BABYLON.MeshBuilder.CreateBox(
       "cbHousing",
-      { width: 0.058, height: 0.068, depth: 0.12 },
+      { width: 0.06, height: 0.07, depth: 0.13 },
       this.scene,
     );
     housing.position.set(0.34, -0.305, -0.52);
     housing.material = goldMat;
     housing.parent = root;
 
-    // Animated Swept Steel Prod Limbs
+    const sightRing = BABYLON.MeshBuilder.CreateTorus(
+      "cbSightRing",
+      { diameter: 0.095, thickness: 0.0045, tessellation: 28 },
+      this.scene,
+    );
+    sightRing.rotation.x = Math.PI / 2;
+    sightRing.position.set(0.34, -0.232, -0.56);
+    sightRing.material = goldMat;
+    sightRing.parent = root;
+
+    // Spinning Rear Windlass Ratchet Crank Wheels
+    this.crankWheelL = BABYLON.MeshBuilder.CreateTorus(
+      "cbCrankL",
+      { diameter: 0.065, thickness: 0.008, tessellation: 14 },
+      this.scene,
+    );
+    this.crankWheelL.rotation.z = Math.PI / 2;
+    this.crankWheelL.position.set(0.305, -0.3, -0.36);
+    this.crankWheelL.material = goldMat;
+    this.crankWheelL.parent = root;
+
+    this.crankWheelR = BABYLON.MeshBuilder.CreateTorus(
+      "cbCrankR",
+      { diameter: 0.065, thickness: 0.008, tessellation: 14 },
+      this.scene,
+    );
+    this.crankWheelR.rotation.z = Math.PI / 2;
+    this.crankWheelR.position.set(0.375, -0.3, -0.36);
+    this.crankWheelR.material = goldMat;
+    this.crankWheelR.parent = root;
+
+    // Swept Forged-Steel Prod Limbs
     this.limbL = BABYLON.MeshBuilder.CreateBox(
       "cbLimbL",
-      { width: 0.26, height: 0.022, depth: 0.036 },
+      { width: 0.27, height: 0.022, depth: 0.036 },
       this.scene,
     );
     this.limbL.rotation.y = 0.28;
-    this.limbL.position.set(0.21, -0.285, -0.82);
+    this.limbL.position.set(0.205, -0.285, -0.82);
     this.limbL.material = steelMat;
     this.limbL.parent = root;
 
     this.limbR = BABYLON.MeshBuilder.CreateBox(
       "cbLimbR",
-      { width: 0.26, height: 0.022, depth: 0.036 },
+      { width: 0.27, height: 0.022, depth: 0.036 },
       this.scene,
     );
     this.limbR.rotation.y = -0.28;
-    this.limbR.position.set(0.47, -0.285, -0.82);
+    this.limbR.position.set(0.475, -0.285, -0.82);
     this.limbR.material = steelMat;
     this.limbR.parent = root;
 
     const bridle = BABYLON.MeshBuilder.CreateBox(
       "cbBridle",
-      { width: 0.072, height: 0.076, depth: 0.055 },
+      { width: 0.074, height: 0.078, depth: 0.058 },
       this.scene,
     );
     bridle.position.set(0.34, -0.295, -0.84);
     bridle.material = goldMat;
     bridle.parent = root;
 
+    // Front Steel Foot-Stirrup Ring
+    const stirrup = BABYLON.MeshBuilder.CreateTorus(
+      "cbStirrup",
+      { diameter: 0.095, thickness: 0.008, tessellation: 16 },
+      this.scene,
+    );
+    stirrup.position.set(0.34, -0.295, -0.92);
+    stirrup.material = steelMat;
+    stirrup.parent = root;
+
     for (const side of [-1, 1]) {
       const halfString = BABYLON.MeshBuilder.CreateCylinder(
         `cbString_${side}`,
-        { diameter: 0.005, height: 0.26, tessellation: 6 },
+        { diameter: 0.005, height: 0.27, tessellation: 6 },
         this.scene,
       );
       halfString.rotation.z = Math.PI / 2;
@@ -206,7 +285,6 @@ export class BabylonHelmsPlayer {
       halfString.parent = root;
     }
 
-    // Loaded Bolt Group (animates along the flight groove during reload)
     this.loadedBoltGroup = new BABYLON.TransformNode("loadedBoltGroup", this.scene);
     this.loadedBoltGroup.parent = root;
 
@@ -222,7 +300,7 @@ export class BabylonHelmsPlayer {
 
     this.loadedBroadhead = BABYLON.MeshBuilder.CreateCylinder(
       "cbBroadhead",
-      { diameterTop: 0.002, diameterBottom: 0.03, height: 0.1, tessellation: 4 },
+      { diameterTop: 0.002, diameterBottom: 0.032, height: 0.11, tessellation: 4 },
       this.scene,
     );
     this.loadedBroadhead.rotation.x = -Math.PI / 2;
@@ -244,22 +322,28 @@ export class BabylonHelmsPlayer {
     const q = BABYLON.Quaternion.RotationYawPitchRoll(this.yaw, this.pitch, 0);
     this.camera.rotationQuaternion = q;
 
-    const targetFov = ((this.isAiming ? 32 : 62) * Math.PI) / 180;
-    this.camera.fov += (targetFov - this.camera.fov) * 0.22;
+    const adsLerp = Math.min(1, 1 - Math.exp(-22 * dt));
+    const baseDeg = 62;
+    const zoomedDeg = baseDeg / this.zoomLevel;
+    const targetFov = ((this.isAiming ? zoomedDeg : baseDeg) * Math.PI) / 180;
+    this.camera.fov += (targetFov - this.camera.fov) * adsLerp;
 
     if (this.weaponRoot) {
-      const targetX = this.isAiming ? -0.32 : 0;
-      const targetY = this.isAiming ? 0.06 : 0;
-      this.weaponRoot.position.x += (targetX - this.weaponRoot.position.x) * 0.25;
-      this.weaponRoot.position.y += (targetY - this.weaponRoot.position.y) * 0.25;
+      const targetX = this.isAiming ? -0.34 : 0;
+      const targetY = this.isAiming ? 0.232 : 0;
+      this.weaponRoot.position.x += (targetX - this.weaponRoot.position.x) * adsLerp;
+      this.weaponRoot.position.y += (targetY - this.weaponRoot.position.y) * adsLerp;
       this.weaponRoot.position.z = this.recoilZ;
 
-      // Animate steel prod limbs & bolt draw during reload
       const reloadRatio = Math.min(1, this.cooldown * this.stats.fireRate);
       if (this.limbL && this.limbR) {
         const flex = (1 - reloadRatio) * 0.28 + 0.06;
         this.limbL.rotation.y = flex;
         this.limbR.rotation.y = -flex;
+      }
+      if (this.crankWheelL && this.crankWheelR && reloadRatio > 0) {
+        this.crankWheelL.rotation.x += dt * 18;
+        this.crankWheelR.rotation.x += dt * 18;
       }
       if (this.loadedBoltGroup) {
         this.loadedBoltGroup.position.z = -reloadRatio * 0.16;
@@ -267,8 +351,60 @@ export class BabylonHelmsPlayer {
     }
   }
 
+  public scanReticleTarget(
+    zombies: BabylonZombie[],
+    barrels: PowderBarrel[],
+  ): ReticleTargetInfo | null {
+    const origin = this.camera.position;
+    const forward = this.camera.getDirection(new BABYLON.Vector3(0, 0, -1)).normalize();
+
+    let bestDist = 180;
+    let bestInfo: ReticleTargetInfo | null = null;
+
+    // Check Powder Barrels
+    for (const b of barrels) {
+      if (b.detonated) continue;
+      const toB = b.pos.subtract(origin);
+      const proj = BABYLON.Vector3.Dot(toB, forward);
+      if (proj > 2 && proj < bestDist) {
+        const closestPt = origin.add(forward.scale(proj));
+        if (BABYLON.Vector3.Distance(closestPt, b.pos) <= b.radius * 1.45) {
+          bestDist = proj;
+          bestInfo = {
+            label: "Black-Powder Cask [EXPLOSIVE]",
+            distance: Math.round(proj),
+            isHazard: true,
+          };
+        }
+      }
+    }
+
+    // Check Zombies
+    for (const z of zombies) {
+      if (z.dead) continue;
+      const center = new BABYLON.Vector3(z.pos.x, z.pos.y + 2.4, z.pos.z);
+      const toZ = center.subtract(origin);
+      const proj = BABYLON.Vector3.Dot(toZ, forward);
+      if (proj > 2 && proj < bestDist) {
+        const closestPt = origin.add(forward.scale(proj));
+        if (BABYLON.Vector3.Distance(closestPt, center) <= z.radius * 1.5) {
+          bestDist = proj;
+          bestInfo = {
+            label: ZOMBIE_LABELS[z.type] || "Undead",
+            distance: Math.round(proj),
+            hp: Math.max(0, Math.round(z.hp)),
+            maxHp: z.maxHp,
+            isHazard: z.type === "sapper" || z.type === "warlord",
+          };
+        }
+      }
+    }
+
+    return bestInfo;
+  }
+
   public look(dx: number, dy: number) {
-    const sens = this.isAiming ? 0.0016 : 0.0028;
+    const sens = this.isAiming ? 0.0024 / Math.max(1, this.zoomLevel * 0.6) : 0.0028;
     this.yaw -= dx * sens;
     this.pitch -= dy * sens;
 
@@ -292,7 +428,7 @@ export class BabylonHelmsPlayer {
     if (!this.canShoot()) return null;
 
     this.cooldown = 1 / this.stats.fireRate;
-    this.recoilZ = 0.2;
+    this.recoilZ = this.isAiming ? 0.08 : 0.2;
 
     const forward = this.camera.getDirection(new BABYLON.Vector3(0, 0, -1)).normalize();
     const right = this.camera.getDirection(new BABYLON.Vector3(1, 0, 0)).normalize();
@@ -306,7 +442,7 @@ export class BabylonHelmsPlayer {
       const dir = forward.add(right.scale(spread)).normalize();
       const boltMesh = BABYLON.MeshBuilder.CreateCylinder(
         "flyingBolt",
-        { diameterTop: 0.025, diameterBottom: 0.095, height: 1.55, tessellation: 8 },
+        { diameterTop: 0.025, diameterBottom: 0.1, height: 1.85, tessellation: 8 },
         this.scene,
       );
       boltMesh.position.copyFrom(muzzle);
@@ -324,7 +460,7 @@ export class BabylonHelmsPlayer {
             ? Math.round(this.stats.damage * 0.72)
             : this.stats.damage,
         pierceLeft:
-          this.currentAmmo === "bodkin" ? this.stats.pierce + 1 : this.stats.pierce,
+          this.currentAmmo === "bodkin" ? (this.stats.pierce ?? 1) + 1 : (this.stats.pierce ?? 1),
         isCrit: false,
         dead: false,
         hitIds: new Set(),
@@ -380,7 +516,6 @@ export class BabylonHelmsPlayer {
       p.pos.addInPlace(p.vel.scale(dt));
       p.mesh.position.copyFrom(p.pos);
 
-      // 1. Check Powder Barrel Collisions
       for (const barrel of powderBarrels) {
         if (barrel.detonated) continue;
         if (BABYLON.Vector3.Distance(p.pos, barrel.pos) <= barrel.radius) {
@@ -395,7 +530,6 @@ export class BabylonHelmsPlayer {
         continue;
       }
 
-      // 2. Check Zombie Head & Body Collisions
       for (const z of zombies) {
         if (z.dead || p.hitIds.has(z.id)) continue;
 
@@ -408,7 +542,7 @@ export class BabylonHelmsPlayer {
           this.stickBoltIntoZombie(z, true);
           onHit(
             z,
-            p.damage * this.stats.critMul,
+            Math.round(p.damage * this.stats.critMul),
             true,
             p.pos.clone(),
             p.ammoType,

@@ -43,17 +43,18 @@ export class BabylonZombieHorde {
   public zombies: BabylonZombie[] = [];
   private nextId = 1;
 
-  private boneMat: BABYLON.StandardMaterial;
+  private boneMat: BABYLON.PBRMaterial;
   private socketDarkMat: BABYLON.StandardMaterial;
-  private fleshMat: BABYLON.StandardMaterial;
-  private darkPlateMat: BABYLON.StandardMaterial;
-  private rustedMailMat: BABYLON.StandardMaterial;
-  private bruteHideMat: BABYLON.StandardMaterial;
-  private leatherMat: BABYLON.StandardMaterial;
-  private tatteredClothMat: BABYLON.StandardMaterial;
-  private woodShieldMat: BABYLON.StandardMaterial;
+  private fleshMat: BABYLON.PBRMaterial;
+  private darkPlateMat: BABYLON.PBRMaterial;
+  private rustedMailMat: BABYLON.PBRMaterial;
+  private bruteHideMat: BABYLON.PBRMaterial;
+  private leatherMat: BABYLON.PBRMaterial;
+  private tatteredClothMat: BABYLON.PBRMaterial;
+  private woodShieldMat: BABYLON.PBRMaterial;
   private eyeEmberMat: BABYLON.StandardMaterial;
   private eyeGoldMat: BABYLON.StandardMaterial;
+  private sapperBombMat: BABYLON.StandardMaterial;
   private wraithCloakMat: BABYLON.StandardMaterial;
   private wraithCoreMat: BABYLON.StandardMaterial;
   private burnAuraMat: BABYLON.StandardMaterial;
@@ -64,47 +65,50 @@ export class BabylonZombieHorde {
     this.scene = scene;
     this.shadowGenerator = shadowGenerator;
 
-    // 1. Gritty Weathered Dark-Fantasy Materials
-    this.boneMat = new BABYLON.StandardMaterial("zBoneMat", scene);
-    this.boneMat.diffuseColor = new BABYLON.Color3(0.68, 0.62, 0.52);
-    this.boneMat.specularColor = new BABYLON.Color3(0.22, 0.2, 0.16);
-    this.boneMat.specularPower = 20;
+    // 1. Physically-Based Dark-Fantasy PBR Armor, Bone & Flesh Materials
+    this.boneMat = new BABYLON.PBRMaterial("zBoneMat", scene);
+    this.boneMat.albedoColor = new BABYLON.Color3(0.72, 0.66, 0.55);
+    this.boneMat.metallic = 0.05;
+    this.boneMat.roughness = 0.58;
 
     this.socketDarkMat = new BABYLON.StandardMaterial("zSocketDarkMat", scene);
-    this.socketDarkMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.06);
+    this.socketDarkMat.diffuseColor = new BABYLON.Color3(0.04, 0.04, 0.05);
     this.socketDarkMat.specularColor = BABYLON.Color3.Black();
 
-    this.fleshMat = new BABYLON.StandardMaterial("zFleshMat", scene);
-    this.fleshMat.diffuseColor = new BABYLON.Color3(0.32, 0.39, 0.31);
-    this.fleshMat.specularColor = new BABYLON.Color3(0.18, 0.22, 0.18);
-    this.fleshMat.specularPower = 18;
+    this.fleshMat = new BABYLON.PBRMaterial("zFleshMat", scene);
+    this.fleshMat.albedoColor = new BABYLON.Color3(0.32, 0.4, 0.31);
+    this.fleshMat.metallic = 0.06;
+    this.fleshMat.roughness = 0.48; // Rain-slick necrotic skin
 
-    this.darkPlateMat = new BABYLON.StandardMaterial("zDarkPlateMat", scene);
-    this.darkPlateMat.diffuseColor = new BABYLON.Color3(0.17, 0.19, 0.22);
-    this.darkPlateMat.specularColor = new BABYLON.Color3(0.68, 0.72, 0.8);
-    this.darkPlateMat.specularPower = 56;
+    this.darkPlateMat = new BABYLON.PBRMaterial("zDarkPlateMat", scene);
+    this.darkPlateMat.albedoColor = new BABYLON.Color3(0.24, 0.27, 0.32);
+    this.darkPlateMat.metallic = 0.88;
+    this.darkPlateMat.roughness = 0.28; // Gleaming forged dark steel in moonlight!
 
-    this.rustedMailMat = new BABYLON.StandardMaterial("zRustedMailMat", scene);
-    this.rustedMailMat.diffuseColor = new BABYLON.Color3(0.24, 0.21, 0.19);
-    this.rustedMailMat.specularColor = new BABYLON.Color3(0.45, 0.4, 0.36);
-    this.rustedMailMat.specularPower = 32;
+    this.rustedMailMat = new BABYLON.PBRMaterial("zRustedMailMat", scene);
+    this.rustedMailMat.albedoColor = new BABYLON.Color3(0.32, 0.26, 0.22);
+    this.rustedMailMat.metallic = 0.72;
+    this.rustedMailMat.roughness = 0.46;
 
-    this.bruteHideMat = new BABYLON.StandardMaterial("zBruteHideMat", scene);
-    this.bruteHideMat.diffuseColor = new BABYLON.Color3(0.34, 0.28, 0.24);
-    this.bruteHideMat.specularColor = new BABYLON.Color3(0.22, 0.18, 0.15);
-    this.bruteHideMat.specularPower = 16;
+    this.bruteHideMat = new BABYLON.PBRMaterial("zBruteHideMat", scene);
+    this.bruteHideMat.albedoColor = new BABYLON.Color3(0.36, 0.3, 0.25);
+    this.bruteHideMat.metallic = 0.08;
+    this.bruteHideMat.roughness = 0.55;
 
-    this.leatherMat = new BABYLON.StandardMaterial("zLeatherMat", scene);
-    this.leatherMat.diffuseColor = new BABYLON.Color3(0.22, 0.15, 0.1);
-    this.leatherMat.specularColor = new BABYLON.Color3(0.15, 0.1, 0.07);
+    this.leatherMat = new BABYLON.PBRMaterial("zLeatherMat", scene);
+    this.leatherMat.albedoColor = new BABYLON.Color3(0.24, 0.16, 0.1);
+    this.leatherMat.metallic = 0.08;
+    this.leatherMat.roughness = 0.62;
 
-    this.tatteredClothMat = new BABYLON.StandardMaterial("zTatteredClothMat", scene);
-    this.tatteredClothMat.diffuseColor = new BABYLON.Color3(0.38, 0.09, 0.08);
-    this.tatteredClothMat.specularColor = new BABYLON.Color3(0.08, 0.04, 0.04);
+    this.tatteredClothMat = new BABYLON.PBRMaterial("zTatteredClothMat", scene);
+    this.tatteredClothMat.albedoColor = new BABYLON.Color3(0.45, 0.1, 0.09);
+    this.tatteredClothMat.metallic = 0.02;
+    this.tatteredClothMat.roughness = 0.85;
 
-    this.woodShieldMat = new BABYLON.StandardMaterial("zWoodShieldMat", scene);
-    this.woodShieldMat.diffuseColor = new BABYLON.Color3(0.34, 0.21, 0.11);
-    this.woodShieldMat.specularColor = new BABYLON.Color3(0.14, 0.09, 0.05);
+    this.woodShieldMat = new BABYLON.PBRMaterial("zWoodShieldMat", scene);
+    this.woodShieldMat.albedoColor = new BABYLON.Color3(0.38, 0.24, 0.12);
+    this.woodShieldMat.metallic = 0.06;
+    this.woodShieldMat.roughness = 0.68;
 
     this.eyeEmberMat = new BABYLON.StandardMaterial("zEyeEmberMat", scene);
     this.eyeEmberMat.emissiveColor = new BABYLON.Color3(1.0, 0.22, 0.05);
@@ -113,6 +117,10 @@ export class BabylonZombieHorde {
     this.eyeGoldMat = new BABYLON.StandardMaterial("zEyeGoldMat", scene);
     this.eyeGoldMat.emissiveColor = new BABYLON.Color3(1.0, 0.65, 0.1);
     this.eyeGoldMat.disableLighting = true;
+
+    this.sapperBombMat = new BABYLON.StandardMaterial("zSapperBombMat", scene);
+    this.sapperBombMat.emissiveColor = new BABYLON.Color3(1.0, 0.45, 0.08);
+    this.sapperBombMat.diffuseColor = new BABYLON.Color3(0.95, 0.35, 0.05);
 
     this.wraithCloakMat = new BABYLON.StandardMaterial("zWraithCloakMat", scene);
     this.wraithCloakMat.diffuseColor = new BABYLON.Color3(0.08, 0.14, 0.18);
@@ -482,8 +490,100 @@ export class BabylonZombieHorde {
         "scythe",
       );
       limbs.push(armL.shoulder, armR.shoulder);
+    } else if (type === "sapper") {
+      // 4. ALCHEMIST TORCHBEARER SAPPER (Carries a blazing black-powder bomb-pot high overhead!)
+      hp = 52;
+      speed = 11.8;
+      gold = 35;
+      damage = 160; // Massive breach explosion if he reaches the gate!
+      radius = 1.45;
+      headRadius = 0.95; // Shooting either his head or the overhead bomb-pot detonates him!
+      badgeHeight = 4.6;
+
+      const torso = BABYLON.MeshBuilder.CreateCylinder(
+        `sapperTorso_${id}`,
+        { diameterTop: 1.05, diameterBottom: 0.85, height: 1.5, tessellation: 12 },
+        this.scene,
+      );
+      torso.position.set(0, 2.1, 0);
+      torso.material = this.leatherMat;
+      torso.parent = root;
+
+      headMesh = this.buildRealisticSkull(id, 0.85, this.boneMat, this.eyeGoldMat, true);
+      headMesh.position.set(0, 3.15, 0.15);
+      headMesh.parent = root;
+
+      // Blazing Alchemical Bomb-Pot held overhead!
+      const bombPot = BABYLON.MeshBuilder.CreateSphere(
+        `sapperPot_${id}`,
+        { diameter: 1.05, segments: 12 },
+        this.scene,
+      );
+      bombPot.position.set(0, 0.92, 0.1);
+      bombPot.material = this.darkPlateMat;
+      bombPot.parent = headMesh;
+
+      const bombFlame = BABYLON.MeshBuilder.CreateSphere(
+        `sapperFlame_${id}`,
+        { diameter: 0.65, segments: 8 },
+        this.scene,
+      );
+      bombFlame.position.set(0, 1.45, 0.1);
+      bombFlame.material = this.sapperBombMat;
+      bombFlame.parent = headMesh;
+
+      const armL = this.buildArticulatedArm(
+        `armL_${id}`,
+        0.19,
+        1.5,
+        this.fleshMat,
+        this.darkPlateMat,
+        root,
+        -0.68,
+        2.75,
+        0.15,
+        "none",
+      );
+      armL.shoulder.rotation.x = -2.4; // Raised overhead holding the bomb-pot!
+      const armR = this.buildArticulatedArm(
+        `armR_${id}`,
+        0.19,
+        1.5,
+        this.fleshMat,
+        this.darkPlateMat,
+        root,
+        0.68,
+        2.75,
+        0.15,
+        "none",
+      );
+      armR.shoulder.rotation.x = -2.4;
+
+      const legL = this.buildArticulatedLeg(
+        `legL_${id}`,
+        0.22,
+        1.45,
+        this.leatherMat,
+        this.darkPlateMat,
+        root,
+        -0.34,
+        1.25,
+        0,
+      );
+      const legR = this.buildArticulatedLeg(
+        `legR_${id}`,
+        0.22,
+        1.45,
+        this.leatherMat,
+        this.darkPlateMat,
+        root,
+        0.34,
+        1.25,
+        0,
+      );
+      limbs.push(armL.shoulder, armR.shoulder, legL, legR);
     } else {
-      // 4. ARMORED UNDEAD FOOTMAN / SHAMBLER (Shield Phalanx Infantry)
+      // 5. ARMORED UNDEAD FOOTMAN / SHAMBLER (Shield Phalanx Infantry)
       hp = 72;
       speed = 6.8;
       gold = 18;
@@ -676,8 +776,8 @@ export class BabylonZombieHorde {
   private buildRealisticSkull(
     id: number,
     scale: number,
-    skullMat: BABYLON.StandardMaterial,
-    eyeMat: BABYLON.StandardMaterial,
+    skullMat: BABYLON.Material,
+    eyeMat: BABYLON.Material,
     withHelmet: boolean,
   ): BABYLON.Mesh {
     const cranium = BABYLON.MeshBuilder.CreateSphere(
@@ -783,8 +883,8 @@ export class BabylonZombieHorde {
     name: string,
     radius: number,
     length: number,
-    upperMat: BABYLON.StandardMaterial,
-    lowerMat: BABYLON.StandardMaterial,
+    upperMat: BABYLON.Material,
+    lowerMat: BABYLON.Material,
     parent: BABYLON.TransformNode,
     x: number,
     y: number,
@@ -909,8 +1009,8 @@ export class BabylonZombieHorde {
     name: string,
     radius: number,
     length: number,
-    thighMat: BABYLON.StandardMaterial,
-    greaveMat: BABYLON.StandardMaterial,
+    thighMat: BABYLON.Material,
+    greaveMat: BABYLON.Material,
     parent: BABYLON.TransformNode,
     x: number,
     y: number,
@@ -1040,6 +1140,13 @@ export class BabylonZombieHorde {
       const distToGate = Math.abs(z.pos.z - z.targetPos.z);
 
       if (distToGate <= 1.2) {
+        if (z.type === "sapper") {
+          onGateAttack(z.damage);
+          z.hp = 0;
+          z.dead = true;
+          onBurnDeath?.(z);
+          continue;
+        }
         z.isAttackingGate = true;
         z.attackTimer += dt;
         if (z.limbs.length >= 2) {
@@ -1084,8 +1191,13 @@ export class BabylonZombieHorde {
         z.root.position.y = Math.abs(Math.cos(z.walkTimer)) * 0.14;
         z.root.rotation.z = Math.sin(z.walkTimer) * 0.04;
         if (z.limbs.length >= 4) {
-          z.limbs[0].rotation.x = z.hasShield ? -0.55 : swing * 0.7 - 0.25;
-          z.limbs[1].rotation.x = -swing * 0.7 - 0.35;
+          if (z.type === "sapper") {
+            z.limbs[0].rotation.x = -2.45 + swing * 0.12;
+            z.limbs[1].rotation.x = -2.45 - swing * 0.12;
+          } else {
+            z.limbs[0].rotation.x = z.hasShield ? -0.55 : swing * 0.7 - 0.25;
+            z.limbs[1].rotation.x = -swing * 0.7 - 0.35;
+          }
           z.limbs[2].rotation.x = -swing;
           z.limbs[3].rotation.x = swing;
         } else if (z.limbs.length >= 2) {

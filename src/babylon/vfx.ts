@@ -64,12 +64,14 @@ export class BabylonHelmsVFX {
 
     this.scorchMat = new BABYLON.StandardMaterial("vfxScorchMat", scene);
     this.scorchMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.05);
-    this.scorchMat.emissiveColor = new BABYLON.Color3(0.18, 0.05, 0.01);
+    this.scorchMat.specularColor = BABYLON.Color3.Black();
+    this.scorchMat.emissiveColor = new BABYLON.Color3(0.14, 0.04, 0.01);
     this.scorchMat.alpha = 0.85;
 
     this.boneMat = new BABYLON.StandardMaterial("vfxBoneMat", scene);
     this.boneMat.diffuseColor = new BABYLON.Color3(0.76, 0.7, 0.58);
-    this.boneMat.emissiveColor = new BABYLON.Color3(0.22, 0.18, 0.14);
+    this.boneMat.specularColor = new BABYLON.Color3(0.12, 0.12, 0.1);
+    this.boneMat.emissiveColor = new BABYLON.Color3(0.18, 0.15, 0.11);
 
     this.ironDebrisMat = new BABYLON.StandardMaterial("vfxIronDebrisMat", scene);
     this.ironDebrisMat.diffuseColor = new BABYLON.Color3(0.25, 0.28, 0.32);
@@ -77,6 +79,7 @@ export class BabylonHelmsVFX {
 
     this.woodDebrisMat = new BABYLON.StandardMaterial("vfxWoodDebrisMat", scene);
     this.woodDebrisMat.diffuseColor = new BABYLON.Color3(0.38, 0.24, 0.12);
+    this.woodDebrisMat.specularColor = new BABYLON.Color3(0.05, 0.04, 0.03);
 
     this.fireMat = new BABYLON.StandardMaterial("vfxFireMat", scene);
     this.fireMat.emissiveColor = new BABYLON.Color3(1.0, 0.45, 0.08);
@@ -87,7 +90,9 @@ export class BabylonHelmsVFX {
     this.frostMat.disableLighting = true;
 
     this.smokeMat = new BABYLON.StandardMaterial("vfxSmokeMat", scene);
-    this.smokeMat.diffuseColor = new BABYLON.Color3(0.25, 0.26, 0.3);
+    this.smokeMat.diffuseColor = new BABYLON.Color3(0.12, 0.12, 0.14);
+    this.smokeMat.specularColor = BABYLON.Color3.Black();
+    this.smokeMat.alpha = 0.42;
     this.smokeMat.emissiveColor = new BABYLON.Color3(0.12, 0.12, 0.14);
     this.smokeMat.alpha = 0.65;
 
@@ -278,13 +283,14 @@ export class BabylonHelmsVFX {
 
   public spawnExplosion(pos: BABYLON.Vector3, radius = 6) {
     for (let i = 0; i < 18; i++) {
-      const m = BABYLON.MeshBuilder.CreateSphere(
+      const isFire = i < 12;
+      const m = BABYLON.MeshBuilder.CreatePolyhedron(
         "expFire",
-        { diameter: 0.95, segments: 8 },
+        { type: 1, size: isFire ? 0.38 : 0.45 },
         this.scene,
       );
       m.position.copyFrom(pos);
-      m.material = i < 11 ? this.fireMat : this.smokeMat;
+      m.material = isFire ? this.fireMat : this.smokeMat;
       this.particles.push({
         mesh: m,
         vel: new BABYLON.Vector3(
@@ -292,9 +298,14 @@ export class BabylonHelmsVFX {
           Math.random() * 11 + 2.5,
           (Math.random() - 0.5) * 14,
         ),
-        life: 0.75,
-        maxLife: 0.75,
-        scaleSpeed: 2.4,
+        rotVel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 8,
+          (Math.random() - 0.5) * 8,
+          (Math.random() - 0.5) * 8,
+        ),
+        life: isFire ? 0.55 : 0.7,
+        maxLife: isFire ? 0.55 : 0.7,
+        scaleSpeed: isFire ? -0.45 : 0.85,
       });
     }
 

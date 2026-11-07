@@ -5,7 +5,14 @@ import { HelmsPlayer } from "./player";
 import { TurretManager } from "./turrets";
 import { HelmsVFX } from "./vfx";
 import { HelmsAudio } from "./audio";
-import { type TurretType, TURRET_SPECS, type BoltAmmoType, type CombatCallout } from "./types";
+import {
+  type TurretType,
+  TURRET_SPECS,
+  type BoltAmmoType,
+  type CombatCallout,
+  type FloatingDamage,
+  type ReticleTargetInfo,
+} from "./types";
 
 export type AbilityId = "oil_dump" | "catapult_barrage" | "horn_of_helm" | "archer_volley";
 
@@ -40,6 +47,10 @@ export type HelmsGameState = {
   powderBarrelsRemaining?: number;
   bossHp?: number;
   bossMaxHp?: number;
+  zoomLevel?: number;
+  bulletTimeActive?: boolean;
+  reticleTarget?: ReticleTargetInfo | null;
+  floatingDamages?: FloatingDamage[];
   callouts?: CombatCallout[];
   abilities: AbilityState[];
   selectedSocketId: number | null;
