@@ -484,6 +484,59 @@ export class HelmsAudio {
     nSource.start(now);
   }
 
+  // Siege Battering Ram Massive Gate Strike
+  public playSiegeRamImpact() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+
+    // Sub-bass heavy timber thud
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(18, now + 0.85);
+
+    gain.gain.setValueAtTime(0.85, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.9);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.92);
+
+    // Wrought-iron gate groan & vibration
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "triangle";
+    osc2.frequency.setValueAtTime(140, now);
+    osc2.frequency.exponentialRampToValueAtTime(32, now + 0.55);
+    gain2.gain.setValueAtTime(0.6, now);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now);
+    osc2.stop(now + 0.62);
+  }
+
+  // Rhythmic Uruk Horde War Drum Beat
+  public playWarDrum() {
+    const ctx = this.getContext();
+    if (!ctx) return;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(62, now);
+    osc.frequency.exponentialRampToValueAtTime(26, now + 0.32);
+    gain.gain.setValueAtTime(0.42, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.36);
+  }
+
   // UI or Purchase chime
   public playChime() {
     const ctx = this.getContext();

@@ -35,6 +35,8 @@ export interface BabylonZombie {
   collapseProcessed: boolean;
   radius: number;
   headRadius: number;
+  ragdollVel?: BABYLON.Vector3;
+  ragdollSpin?: BABYLON.Vector3;
 }
 
 export class BabylonZombieHorde {
@@ -582,6 +584,108 @@ export class BabylonZombieHorde {
         0,
       );
       limbs.push(armL.shoulder, armR.shoulder, legL, legR);
+    } else if (type === "ram") {
+      // 5. HORNBURG IRON-PLATED BATTERING RAM
+      hp = 680;
+      speed = 3.6;
+      gold = 140;
+      damage = 195;
+      radius = 3.0;
+      headRadius = 1.35;
+      badgeHeight = 4.8;
+      hasShield = false;
+
+      // Heavy Timber A-Frame Carriage
+      const carriage = BABYLON.MeshBuilder.CreateBox(
+        `ramCarriage_${id}`,
+        { width: 3.2, height: 0.65, depth: 6.0 },
+        this.scene,
+      );
+      carriage.position.set(0, 1.1, 0);
+      carriage.material = this.woodShieldMat;
+      carriage.parent = root;
+
+      // 4 Heavy Spiked Forged Iron Wheels
+      const wheelOffsets = [
+        { x: -1.8, z: 1.9 },
+        { x: 1.8, z: 1.9 },
+        { x: -1.8, z: -1.9 },
+        { x: 1.8, z: -1.9 },
+      ];
+      wheelOffsets.forEach((wo, wIdx) => {
+        const wheel = BABYLON.MeshBuilder.CreateCylinder(
+          `ramWheel_${id}_${wIdx}`,
+          { diameter: 1.45, height: 0.35, tessellation: 16 },
+          this.scene,
+        );
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(wo.x, 0.72, wo.z);
+        wheel.material = this.darkPlateMat;
+        wheel.parent = root;
+      });
+
+      // Pitched Heavy Timber Roof Mantlet with Spikes
+      for (const side of [-1, 1]) {
+        const roof = BABYLON.MeshBuilder.CreateBox(
+          `ramRoof_${id}_${side}`,
+          { width: 2.2, height: 0.28, depth: 6.2 },
+          this.scene,
+        );
+        roof.rotation.z = side * 0.65;
+        roof.position.set(side * 0.95, 2.7, 0);
+        roof.material = this.darkPlateMat;
+        roof.parent = root;
+      }
+
+      // Suspended 5-Meter Heavy Oak Ram Beam
+      const ramLog = BABYLON.MeshBuilder.CreateCylinder(
+        `ramLog_${id}`,
+        { diameter: 0.85, height: 6.6, tessellation: 12 },
+        this.scene,
+      );
+      ramLog.rotation.x = Math.PI / 2;
+      ramLog.position.set(0, 1.7, 0.4);
+      ramLog.material = this.woodShieldMat;
+      ramLog.parent = root;
+      limbs.push(ramLog);
+
+      // Forged Wrought-Iron Snarling Beast Ram Head (Head Hitbox for Crits!)
+      headMesh = BABYLON.MeshBuilder.CreateBox(
+        `ramHead_${id}`,
+        { width: 1.35, height: 1.35, depth: 1.45 },
+        this.scene,
+      );
+      headMesh.position.set(0, 1.7, 3.8);
+      headMesh.material = this.darkPlateMat;
+      headMesh.parent = root;
+
+      // Curved Iron Horns
+      for (const side of [-1, 1]) {
+        const horn = BABYLON.MeshBuilder.CreateCylinder(
+          `ramHorn_${id}_${side}`,
+          { diameterTop: 0.08, diameterBottom: 0.38, height: 1.3, tessellation: 8 },
+          this.scene,
+        );
+        horn.rotation.x = 0.85;
+        horn.rotation.z = -side * 0.65;
+        horn.position.set(side * 0.65, 0.45, 0.35);
+        horn.material = this.darkPlateMat;
+        horn.parent = headMesh;
+      }
+
+      // Pushing Uruk Crew inside Carriage
+      for (const side of [-1, 1]) {
+        for (const fz of [-1.1, 1.1]) {
+          const crew = BABYLON.MeshBuilder.CreateCylinder(
+            `ramCrew_${id}_${side}_${fz}`,
+            { diameter: 0.58, height: 1.8, tessellation: 8 },
+            this.scene,
+          );
+          crew.position.set(side * 0.95, 1.2, fz);
+          crew.material = this.rustedMailMat;
+          crew.parent = root;
+        }
+      }
     } else {
       // 5. ARMORED UNDEAD FOOTMAN / SHAMBLER (Shield Phalanx Infantry)
       hp = 72;
@@ -1052,14 +1156,33 @@ export class BabylonZombieHorde {
     for (let i = this.zombies.length - 1; i >= 0; i--) {
       const z = this.zombies[i];
 
-      // Handle dramatic death collapse animation before removal
+      // Handle dramatic ragdoll tumble or death collapse animation before removal
       if (z.dead) {
         z.dyingTimer += dt;
         z.hpBarBg.visibility = 0;
         z.hpBarFill.visibility = 0;
-        z.root.rotation.x = -Math.min(Math.PI / 2, z.dyingTimer * 4.2);
-        z.root.position.y = Math.max(-0.4, -z.dyingTimer * 1.2);
-        if (z.dyingTimer >= 0.42) {
+
+        if (z.ragdollVel) {
+          z.ragdollVel.y -= 19 * dt; // gravity
+          z.pos.addInPlace(z.ragdollVel.scale(dt));
+          z.root.position.copyFrom(z.pos);
+          if (z.ragdollSpin) {
+            z.root.rotation.x += z.ragdollSpin.x * dt;
+            z.root.rotation.y += z.ragdollSpin.y * dt;
+            z.root.rotation.z += z.ragdollSpin.z * dt;
+          }
+          if (z.pos.y <= 0.25) {
+            z.pos.y = 0.25;
+            z.ragdollVel.y *= -0.35;
+            z.ragdollVel.x *= 0.65;
+            z.ragdollVel.z *= 0.65;
+          }
+        } else {
+          z.root.rotation.x = -Math.min(Math.PI / 2, z.dyingTimer * 4.2);
+          z.root.position.y = Math.max(-0.4, -z.dyingTimer * 1.2);
+        }
+
+        if (z.dyingTimer >= (z.ragdollVel ? 1.4 : 0.42)) {
           this.removeZombie(z);
         }
         continue;
@@ -1138,8 +1261,9 @@ export class BabylonZombieHorde {
       }
 
       const distToGate = Math.abs(z.pos.z - z.targetPos.z);
+      const attackDist = z.type === "ram" ? 3.5 : 1.2;
 
-      if (distToGate <= 1.2) {
+      if (distToGate <= attackDist) {
         if (z.type === "sapper") {
           onGateAttack(z.damage);
           z.hp = 0;
@@ -1149,13 +1273,28 @@ export class BabylonZombieHorde {
         }
         z.isAttackingGate = true;
         z.attackTimer += dt;
-        if (z.limbs.length >= 2) {
-          z.limbs[0].rotation.x = -0.5 + Math.sin(z.attackTimer * 7) * 0.55;
-          z.limbs[1].rotation.x = -0.85 + Math.cos(z.attackTimer * 7) * 0.95;
-        }
-        if (z.attackTimer >= 1.2) {
-          z.attackTimer = 0;
-          onGateAttack(z.damage);
+        if (z.type === "ram") {
+          // Battering Ram timber beam piston slam
+          const cycle = Math.sin(z.attackTimer * 3.5);
+          if (z.limbs.length > 0) {
+            z.limbs[0].position.z = 0.4 + cycle * 1.35;
+          }
+          if (z.headMesh) {
+            z.headMesh.position.z = 3.8 + cycle * 1.35;
+          }
+          if (z.attackTimer >= 1.6) {
+            z.attackTimer = 0;
+            onGateAttack(z.damage);
+          }
+        } else {
+          if (z.limbs.length >= 2) {
+            z.limbs[0].rotation.x = -0.5 + Math.sin(z.attackTimer * 7) * 0.55;
+            z.limbs[1].rotation.x = -0.85 + Math.cos(z.attackTimer * 7) * 0.95;
+          }
+          if (z.attackTimer >= 1.2) {
+            z.attackTimer = 0;
+            onGateAttack(z.damage);
+          }
         }
       } else {
         const dx = z.targetPos.x - z.pos.x;

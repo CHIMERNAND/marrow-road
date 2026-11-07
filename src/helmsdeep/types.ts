@@ -4,7 +4,8 @@ export type ZombieType =
   | "brute"
   | "banshee"
   | "warlord"
-  | "sapper";
+  | "sapper"
+  | "ram";
 
 export type BoltAmmoType = "bodkin" | "fire" | "frost" | "scatter";
 

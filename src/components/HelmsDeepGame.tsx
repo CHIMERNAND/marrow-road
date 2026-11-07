@@ -229,6 +229,24 @@ export function HelmsDeepGame() {
         <div className="pointer-events-none absolute inset-0 ring-8 ring-inset ring-red-600/70 bg-red-950/25 animate-pulse transition-opacity duration-150" />
       )}
 
+      {/* Visceral Blood Splatter on Visor / Camera Lens */}
+      {(gameState?.bloodSplatterTimer || 0) > 0 && (
+        <div
+          className="pointer-events-none absolute inset-0 transition-opacity duration-300 z-10"
+          style={{ opacity: Math.min(1, (gameState?.bloodSplatterTimer || 0) / 1.5) }}
+        >
+          <div className="absolute top-12 left-16 w-36 h-28 rounded-full bg-red-950/70 blur-xs border border-red-900/60 rotate-12" />
+          <div className="absolute top-20 left-28 w-12 h-18 rounded-full bg-red-900/80 -rotate-45" />
+          <div className="absolute bottom-24 right-20 w-44 h-32 rounded-full bg-red-950/75 blur-xs rotate-6" />
+          <div className="absolute bottom-36 right-40 w-16 h-24 rounded-full bg-red-900/80 -rotate-12" />
+          <div className="absolute top-1/3 right-1/4 w-8 h-8 rounded-full bg-red-800/60" />
+          <div className="absolute bottom-1/3 left-1/3 w-6 h-6 rounded-full bg-red-800/60" />
+        </div>
+      )}
+
+      {/* Cinematic Storm Rain Droplets on Camera Lens */}
+      <div className="pointer-events-none absolute inset-0 opacity-25 mix-blend-screen bg-[radial-gradient(circle_at_20%_30%,rgba(255,255,255,0.4)_1px,transparent_2px),radial-gradient(circle_at_80%_20%,rgba(255,255,255,0.35)_1.5px,transparent_3px),radial-gradient(circle_at_40%_70%,rgba(255,255,255,0.3)_1px,transparent_2px),radial-gradient(circle_at_70%_80%,rgba(255,255,255,0.4)_2px,transparent_4px)]" />
+
       {/* Bullet-Time Slow-Motion Edge Highlight */}
       {gameState?.bulletTimeActive && (
         <div className="pointer-events-none absolute inset-0 ring-4 ring-inset ring-cyan-400/60 bg-[radial-gradient(circle_at_center,transparent_60%,rgba(34,211,238,0.16)_100%)] transition-opacity" />

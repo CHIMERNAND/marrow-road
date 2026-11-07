@@ -106,6 +106,8 @@ export class BabylonHelmsEngine {
   private enemySiegeBolts: EnemySiegeBolt[] = [];
   private enemyFireTimer = 4.5;
   private screenTraumaTimer = 0;
+  private bloodSplatterTimer = 0;
+  private warDrumTimer = 0;
   private emberSpawnTimer = 0;
   private enemyBoltMat: BABYLON.StandardMaterial;
 
@@ -162,6 +164,7 @@ export class BabylonHelmsEngine {
       bulletTimeActive: false,
       nightSightActive: false,
       screenTraumaTimer: 0,
+      bloodSplatterTimer: 0,
       reticleTarget: null,
       floatingDamages: [],
       callouts: [],
@@ -313,9 +316,16 @@ export class BabylonHelmsEngine {
     const bruteCount = Math.max(1, Math.floor((waveNum - 1) * 2));
     const bansheeCount = Math.max(1, Math.floor((waveNum - 1) * 1.5));
     const warlordCount = waveNum >= 2 ? 1 : 0;
+    const ramCount = waveNum >= 1 ? 1 : 0;
 
     const totalZombies =
-      runnerCount + shamblerCount + sapperCount + bruteCount + bansheeCount + warlordCount;
+      runnerCount +
+      shamblerCount +
+      sapperCount +
+      bruteCount +
+      bansheeCount +
+      warlordCount +
+      ramCount;
     this.state.zombiesRemainingInWave = totalZombies;
 
     if (startImmediately) {
@@ -327,6 +337,7 @@ export class BabylonHelmsEngine {
         { type: "shambler", x: -5.6, z: -79 },
         { type: "banshee", x: 5.2, z: -90 },
         { type: "warlord", x: 0.0, z: -104 },
+        { type: "ram", x: 0.0, z: -120 },
       ];
       for (const v of vanguard) {
         const z = this.horde.spawn(v.type, v.z, 0.5, this.world.gateZ);
@@ -361,6 +372,9 @@ export class BabylonHelmsEngine {
     }
     if (warlordCount > 0) {
       this.waveQueue.push({ type: "warlord", delay: waveDuration * 0.65 });
+    }
+    if (ramCount > 0 && !startImmediately) {
+      this.waveQueue.push({ type: "ram", delay: waveDuration * 0.45 });
     }
 
     this.waveQueue.sort((a, b) => a.delay - b.delay);
@@ -431,6 +445,13 @@ export class BabylonHelmsEngine {
         );
         if (other.hp <= 0) {
           other.dead = true;
+          const blastDir = other.pos.subtract(pos).normalize();
+          other.ragdollVel = new BABYLON.Vector3(
+            blastDir.x * 9 + (Math.random() - 0.5) * 4,
+            Math.random() * 8 + 7,
+            blastDir.z * 11 - 6,
+          );
+          other.ragdollSpin = new BABYLON.Vector3(Math.random() * 12, Math.random() * 8, Math.random() * 8);
           chainKills++;
           this.handleZombieKill(other, false);
         }
@@ -476,6 +497,13 @@ export class BabylonHelmsEngine {
 
         if (z.hp <= 0) {
           z.dead = true;
+          const blastDir = z.pos.subtract(barrel.pos).normalize();
+          z.ragdollVel = new BABYLON.Vector3(
+            blastDir.x * 10 + (Math.random() - 0.5) * 4,
+            Math.random() * 9 + 8,
+            blastDir.z * 12 - 7,
+          );
+          z.ragdollSpin = new BABYLON.Vector3(Math.random() * 12, Math.random() * 8, Math.random() * 8);
           killsFromBarrel++;
           this.handleZombieKill(z, false);
         }
@@ -670,6 +698,9 @@ export class BabylonHelmsEngine {
     if (this.screenTraumaTimer > 0) {
       this.screenTraumaTimer = Math.max(0, this.screenTraumaTimer - realDt);
     }
+    if (this.bloodSplatterTimer > 0) {
+      this.bloodSplatterTimer = Math.max(0, this.bloodSplatterTimer - realDt);
+    }
 
     if (this.state.status === "preparing") {
       this.intermissionTimer -= realDt;
@@ -679,11 +710,21 @@ export class BabylonHelmsEngine {
       }
     } else if (this.state.status === "wave") {
       this.waveTimer += dt;
+      if (this.horde.zombies.length > 0) {
+        this.warDrumTimer += realDt;
+        if (this.warDrumTimer >= 2.2) {
+          this.warDrumTimer = 0;
+          this.audio.playWarDrum();
+        }
+      }
       while (this.waveQueue.length > 0 && this.waveQueue[0].delay <= this.waveTimer) {
         const item = this.waveQueue.shift()!;
         if (item.type === "warlord") {
           this.audio.playWarHorn();
           this.addCallout("SIEGE WARLORD APPROACHING!", "Slay the Champion of Udûn!", "red");
+        } else if (item.type === "ram") {
+          this.audio.playWarHorn();
+          this.addCallout("IRON BATTERING RAM ADVANCING!", "Destroy the Siege Engine Before Gate Breach!", "red");
         }
         this.horde.spawn(item.type, -115 - Math.random() * 25, 7.5, this.world.gateZ);
       }
@@ -703,8 +744,14 @@ export class BabylonHelmsEngine {
         dt,
         (dmg) => {
           this.world.damageGate(dmg);
-          this.player.addCameraShake(0.28);
-          this.audio.playGateHit();
+          if (dmg >= 80) {
+            this.player.addCameraShake(0.68);
+            this.audio.playSiegeRamImpact();
+            this.addCallout("GATE SHATTER THREAT!", `-${dmg} Gate Integrity`, "red");
+          } else {
+            this.player.addCameraShake(0.28);
+            this.audio.playGateHit();
+          }
           this.vfx.spawnHitSparks(new BABYLON.Vector3(0, 3.5, this.world.gateZ - 0.5), 8);
 
           if (this.world.gateHealth <= 0) {
@@ -826,6 +873,10 @@ export class BabylonHelmsEngine {
         z.hp -= finalDmg;
         if (z.hp <= 0 && !z.dead) {
           z.dead = true;
+          if (isHeadshot) {
+            z.ragdollVel = new BABYLON.Vector3((Math.random() - 0.5) * 3, Math.random() * 3 + 2.5, -8.5);
+            z.ragdollSpin = new BABYLON.Vector3(-8, (Math.random() - 0.5) * 5, 0);
+          }
           this.handleZombieKill(z, isHeadshot);
           if (z.type === "sapper") {
             this.detonateSapperExplosion(z.pos.clone());
@@ -870,8 +921,17 @@ export class BabylonHelmsEngine {
     if (zombie.type === "warlord") {
       this.triggerBulletTime(0.45);
       this.addCallout("SIEGE WARLORD SLAIN!", `+${reward} Gold Bounty`, "red");
+    } else if (zombie.type === "ram") {
+      this.triggerBulletTime(0.45);
+      this.vfx.spawnExplosion(zombie.pos, 11.5);
+      this.vfx.spawnStoneImpact(zombie.pos);
+      this.addCallout("BATTERING RAM DEMOLISHED!", `+${reward} Gold Siege Bounty`, "gold");
     } else if (this.combo === 5 || this.combo === 10 || this.combo === 15) {
       this.addCallout(`${this.combo}x KILLSTREAK!`, `${comboMul.toFixed(2)}x Gold Multiplier`, "gold");
+    }
+
+    if (BABYLON.Vector3.Distance(zombie.pos, this.player.camera.position) <= 15.0) {
+      this.bloodSplatterTimer = 2.4;
     }
   }
 
@@ -884,6 +944,7 @@ export class BabylonHelmsEngine {
     this.state.bulletTimeActive = this.bulletTimeTimer > 0;
     this.state.nightSightActive = this.player.nightSightActive;
     this.state.screenTraumaTimer = this.screenTraumaTimer;
+    this.state.bloodSplatterTimer = this.bloodSplatterTimer;
     this.state.reticleTarget = this.player.scanReticleTarget(
       this.horde.zombies,
       this.world.powderBarrels,
@@ -951,6 +1012,13 @@ export class BabylonHelmsEngine {
               z.burnDps = 22;
               if (z.hp <= 0) {
                 z.dead = true;
+                const blastDir = z.pos.subtract(landPos).normalize();
+                z.ragdollVel = new BABYLON.Vector3(
+                  blastDir.x * 10 + (Math.random() - 0.5) * 4,
+                  Math.random() * 9 + 8,
+                  blastDir.z * 12 - 6,
+                );
+                z.ragdollSpin = new BABYLON.Vector3(Math.random() * 12, Math.random() * 8, Math.random() * 8);
                 this.handleZombieKill(z, false);
               }
             }
