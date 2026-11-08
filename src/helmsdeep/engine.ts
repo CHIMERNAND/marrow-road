@@ -53,6 +53,11 @@ export type HelmsGameState = {
   screenTraumaTimer?: number;
   bloodSplatterTimer?: number;
   chargeRatio?: number;
+  breathStamina?: number;
+  holdingBreath?: boolean;
+  culvertHp?: number;
+  maxCulvertHp?: number;
+  culvertBreached?: boolean;
   reticleTarget?: ReticleTargetInfo | null;
   floatingDamages?: FloatingDamage[];
   callouts?: CombatCallout[];

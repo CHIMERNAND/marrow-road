@@ -109,6 +109,7 @@ export class BabylonHelmsEngine {
   private bloodSplatterTimer = 0;
   private warDrumTimer = 0;
   private emberSpawnTimer = 0;
+  private heartbeatTimer = 0;
   private enemyBoltMat: BABYLON.StandardMaterial;
 
   private keysDown: Set<string> = new Set();
@@ -276,13 +277,19 @@ export class BabylonHelmsEngine {
 
   public setAmmo(ammo: BoltAmmoType) {
     this.player.setAmmo(ammo);
-    this.audio.playAmmoSwitch();
+    if (ammo === "fire") this.audio.playIgnite();
+    else if (ammo === "frost") this.audio.playFrostHum();
+    else if (ammo === "bodkin") this.audio.playWindlassRatchet();
+    else this.audio.playAmmoSwitch();
     this.syncState();
   }
 
   public cycleAmmo() {
-    this.player.cycleAmmo();
-    this.audio.playAmmoSwitch();
+    const ammo = this.player.cycleAmmo();
+    if (ammo === "fire") this.audio.playIgnite();
+    else if (ammo === "frost") this.audio.playFrostHum();
+    else if (ammo === "bodkin") this.audio.playWindlassRatchet();
+    else this.audio.playAmmoSwitch();
     this.syncState();
   }
 
@@ -726,7 +733,17 @@ export class BabylonHelmsEngine {
           this.audio.playWarHorn();
           this.addCallout("IRON BATTERING RAM ADVANCING!", "Destroy the Siege Engine Before Gate Breach!", "red");
         }
-        this.horde.spawn(item.type, -115 - Math.random() * 25, 7.5, this.world.gateZ);
+        let targetOverride: BABYLON.Vector3 | undefined = undefined;
+        if (item.type === "sapper" && this.wave >= 2 && Math.random() < 0.45 && !this.world.culvertBreached) {
+          targetOverride = this.world.culvertPos.clone();
+          this.audio.playCulvertAlarm();
+          this.addCallout(
+            "TORCHBEARER SPRINTING FOR THE CULVERT!",
+            "Snip him before the Deeping Wall is breached!",
+            "orange",
+          );
+        }
+        this.horde.spawn(item.type, -115 - Math.random() * 25, 7.5, this.world.gateZ, targetOverride);
       }
 
       if (this.waveQueue.length === 0 && this.horde.zombies.length === 0) {
@@ -737,6 +754,17 @@ export class BabylonHelmsEngine {
           this.setupWave(this.wave + 1, false);
         }
       }
+    }
+
+    // Steady Aim Breath Control: Pulse heartbeat audio
+    if (this.player.holdingBreath) {
+      this.heartbeatTimer += realDt;
+      if (this.heartbeatTimer >= 0.82) {
+        this.heartbeatTimer = 0;
+        this.audio.playHeartbeat(this.player.breathStamina / 100);
+      }
+    } else {
+      this.heartbeatTimer = 0;
     }
 
     if (this.hornStunTimer <= 0) {
@@ -768,6 +796,27 @@ export class BabylonHelmsEngine {
             6.5,
             new BABYLON.Color3(0.2, 0.95, 0.85),
           );
+        },
+        (culvertDmg) => {
+          this.vfx.spawnCulvertBreachDebris(this.world.culvertPos);
+          this.audio.playCulvertBreachExplosion();
+          this.player.addCameraShake(0.85);
+          this.screenTraumaTimer = 2.0;
+          const breached = this.world.damageCulvert(culvertDmg);
+          if (breached) {
+            this.world.damageGate(260);
+            this.addCallout(
+              "CULVERT DRAIN BREACHED!",
+              "Explosive Breach at Deeping Wall! -260 Gate Integrity",
+              "red",
+            );
+          } else {
+            this.addCallout(
+              "CULVERT DRAIN DAMAGED!",
+              `-${culvertDmg} Drain HP (${this.world.culvertHealth} Left)`,
+              "orange",
+            );
+          }
         },
       );
     }
@@ -874,11 +923,30 @@ export class BabylonHelmsEngine {
         if (z.hp <= 0 && !z.dead) {
           z.dead = true;
           if (isHeadshot) {
-            z.ragdollVel = new BABYLON.Vector3((Math.random() - 0.5) * 3, Math.random() * 3 + 2.5, -8.5);
-            z.ragdollSpin = new BABYLON.Vector3(-8, (Math.random() - 0.5) * 5, 0);
+            z.ragdollVel = new BABYLON.Vector3((Math.random() - 0.5) * 4, Math.random() * 4 + 3.0, -8.5);
+            z.ragdollSpin = new BABYLON.Vector3(-8, (Math.random() - 0.5) * 6, 0);
+
+            // Flying horned iron helmet & arterial blood fountain
+            const headPos = z.headMesh.absolutePosition.clone();
+            const shotDir = z.pos.subtract(this.player.camera.position);
+            this.vfx.spawnFlyingHelmet(headPos, shotDir);
+            this.vfx.spawnBloodFountain(headPos);
+            this.audio.playArmorShatter();
+            z.headMesh.setEnabled(false);
+
+            if (ammoType === "frost") {
+              this.vfx.spawnFrostShatter(headPos);
+            }
+
+            const dist = BABYLON.Vector3.Distance(this.player.camera.position, z.pos);
+            if (dist > 45 || z.type === "warlord" || Math.random() < 0.35) {
+              this.triggerBulletTime(0.28);
+              this.audio.playSlowMoImpact();
+            }
           }
           this.handleZombieKill(z, isHeadshot);
           if (z.type === "sapper") {
+            this.vfx.spawnArmorDebris(z.pos.clone());
             this.detonateSapperExplosion(z.pos.clone());
           }
         }
@@ -945,6 +1013,11 @@ export class BabylonHelmsEngine {
     this.state.nightSightActive = this.player.nightSightActive;
     this.state.screenTraumaTimer = this.screenTraumaTimer;
     this.state.bloodSplatterTimer = this.bloodSplatterTimer;
+    this.state.breathStamina = Math.round(this.player.breathStamina);
+    this.state.holdingBreath = this.player.holdingBreath;
+    this.state.culvertHp = Math.round(this.world.culvertHealth);
+    this.state.maxCulvertHp = this.world.maxCulvertHealth;
+    this.state.culvertBreached = this.world.culvertBreached;
     this.state.reticleTarget = this.player.scanReticleTarget(
       this.horde.zombies,
       this.world.powderBarrels,
@@ -1120,15 +1193,26 @@ export class BabylonHelmsEngine {
     }
     this.state.gold -= 100;
     this.world.repairGate(280);
+    this.world.repairCulvert(200);
     this.world.spawnPowderBarrels();
     this.audio.playChime();
-    this.addCallout("GATE REINFORCED & BARRELS RESTOCKED!", "+280 Gate HP & 8 Powder Casks", "gold");
+    this.addCallout("DEFENSES REPAIRED & BARRELS RESTOCKED!", "+280 Gate HP • +200 Culvert HP • 8 Powder Casks", "gold");
     this.syncState();
     return true;
   }
 
   public onKeyDown(code: string) {
     this.keysDown.add(code);
+
+    if (code === "Space" || code === "ShiftLeft" || code === "ShiftRight") {
+      if (this.player.isAiming && !this.player.holdingBreath) {
+        const ok = this.player.setHoldingBreath(true);
+        if (ok) {
+          this.audio.playHeartbeat(this.player.breathStamina / 100);
+          this.syncState();
+        }
+      }
+    }
 
     if (code === "Digit1") this.useAbility("oil_dump");
     if (code === "Digit2") this.useAbility("catapult_barrage");
@@ -1159,6 +1243,14 @@ export class BabylonHelmsEngine {
 
   public onKeyUp(code: string) {
     this.keysDown.delete(code);
+
+    if (code === "Space" || code === "ShiftLeft" || code === "ShiftRight") {
+      if (this.player.holdingBreath) {
+        this.player.setHoldingBreath(false);
+        this.audio.playExhale();
+        this.syncState();
+      }
+    }
   }
 
   public onMouseMove(dx: number, dy: number) {
@@ -1197,6 +1289,10 @@ export class BabylonHelmsEngine {
       this.isMouseDown = false;
     } else if (button === 2) {
       this.player.isAiming = false;
+      if (this.player.holdingBreath) {
+        this.player.setHoldingBreath(false);
+        this.audio.playExhale();
+      }
       this.syncState();
     }
   }

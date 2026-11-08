@@ -29,6 +29,11 @@ export class BabylonHelmsWorld {
   public gateZ = -28.0;
   public gateHealth = 1000;
   public maxGateHealth = 1000;
+  public culvertHealth = 400;
+  public maxCulvertHealth = 400;
+  public culvertBreached = false;
+  public culvertPos = new BABYLON.Vector3(-24.0, 1.2, -4.5);
+  public culvertGrateNode?: BABYLON.TransformNode;
 
   public gateLeftDoor!: BABYLON.Mesh;
   public gateRightDoor!: BABYLON.Mesh;
@@ -202,6 +207,9 @@ export class BabylonHelmsWorld {
 
     // 5. Realistic Hornburg Fortress, Arched Gatehouse, Portcullis & Chains
     this.buildFortress(wallMat, trimMat, slateRoofMat, woodMat, ironMat);
+
+    // 5b. Deeping Wall Arched Culvert Drain Grate & Runoff Stream Channel
+    this.buildCulvert(wallMat, trimMat, ironMat);
 
     // 6. Sculpted Canyon Floor, Wet Flagstone Causeway, Barricades & Mist
     this.buildCanyonAndRoad(valleyMat, roadMat, trimMat, woodMat, ironMat);
@@ -1453,5 +1461,118 @@ export class BabylonHelmsWorld {
     this.gateHealth = Math.min(this.maxGateHealth, this.gateHealth + amount);
     this.gateLeftDoor.position.z = this.gateZ;
     this.gateRightDoor.position.z = this.gateZ;
+  }
+
+  public damageCulvert(amount: number): boolean {
+    if (this.culvertBreached) return false;
+    this.culvertHealth = Math.max(0, this.culvertHealth - amount);
+    if (this.culvertHealth <= 0) {
+      this.culvertBreached = true;
+      if (this.culvertGrateNode) {
+        this.culvertGrateNode.position.y = -12;
+      }
+      return true; // Just breached!
+    }
+    return false;
+  }
+
+  public repairCulvert(amount: number) {
+    this.culvertHealth = Math.min(this.maxCulvertHealth, this.culvertHealth + amount);
+    if (this.culvertHealth > 0 && this.culvertBreached) {
+      this.culvertBreached = false;
+      if (this.culvertGrateNode) {
+        this.culvertGrateNode.position.y = 0;
+      }
+    }
+  }
+
+  private buildCulvert(
+    wallMat: BABYLON.PBRMaterial,
+    trimMat: BABYLON.PBRMaterial,
+    ironMat: BABYLON.PBRMaterial,
+  ) {
+    const cx = this.culvertPos.x; // -24.0
+    const cz = this.culvertPos.z; // -4.5
+
+    // Archway Stone Lintel Portal
+    const archTop = BABYLON.MeshBuilder.CreateTorus(
+      "culvertArchTop",
+      { diameter: 4.8, thickness: 1.15, tessellation: 20 },
+      this.scene,
+    );
+    archTop.position.set(cx, 2.5, cz - 1.2);
+    archTop.rotation.z = Math.PI / 2;
+    archTop.material = trimMat;
+
+    const archL = BABYLON.MeshBuilder.CreateBox(
+      "culvertPillarL",
+      { width: 1.3, height: 2.8, depth: 3.8 },
+      this.scene,
+    );
+    archL.position.set(cx - 2.1, 1.4, cz - 0.8);
+    archL.material = trimMat;
+
+    const archR = BABYLON.MeshBuilder.CreateBox(
+      "culvertPillarR",
+      { width: 1.3, height: 2.8, depth: 3.8 },
+      this.scene,
+    );
+    archR.position.set(cx + 2.1, 1.4, cz - 0.8);
+    archR.material = trimMat;
+
+    // Heavy Wrought-Iron Sewer Drainage Grate
+    this.culvertGrateNode = new BABYLON.TransformNode("culvertGrateGroup", this.scene);
+    this.culvertGrateNode.position.set(cx, 0, cz - 0.8);
+
+    for (let bx = -1.6; bx <= 1.6; bx += 0.45) {
+      const bar = BABYLON.MeshBuilder.CreateCylinder(
+        `culvertBar_${bx}`,
+        { diameter: 0.14, height: 2.8, tessellation: 8 },
+        this.scene,
+      );
+      bar.position.set(bx, 1.4, 0);
+      bar.material = ironMat;
+      bar.parent = this.culvertGrateNode;
+    }
+
+    for (const by of [0.85, 1.95]) {
+      const crossBar = BABYLON.MeshBuilder.CreateCylinder(
+        `culvertCross_${by}`,
+        { diameter: 0.13, height: 3.4, tessellation: 8 },
+        this.scene,
+      );
+      crossBar.rotation.z = Math.PI / 2;
+      crossBar.position.set(0, by, 0);
+      crossBar.material = ironMat;
+      crossBar.parent = this.culvertGrateNode;
+    }
+
+    // Murky Runoff Drainage Water Stream Channel
+    const waterMat = new BABYLON.PBRMaterial("culvertWaterMat", this.scene);
+    waterMat.albedoColor = new BABYLON.Color3(0.08, 0.14, 0.18);
+    waterMat.metallic = 0.92;
+    waterMat.roughness = 0.08;
+    waterMat.alpha = 0.82;
+
+    const stream = BABYLON.MeshBuilder.CreateGround(
+      "culvertWaterStream",
+      { width: 3.8, height: 28 },
+      this.scene,
+    );
+    stream.position.set(cx, 0.06, -18.0);
+    stream.material = waterMat;
+
+    // Culvert Sconce Lantern Flame
+    const sconceFlame = BABYLON.MeshBuilder.CreateCylinder(
+      "culvertTorchFlame",
+      { diameterTop: 0.02, diameterBottom: 0.35, height: 0.65, tessellation: 8 },
+      this.scene,
+    );
+    sconceFlame.position.set(cx, 4.2, cz - 1.8);
+    const flameMat = new BABYLON.StandardMaterial("culvertFlameMat", this.scene);
+    flameMat.emissiveColor = new BABYLON.Color3(1.0, 0.52, 0.1);
+    flameMat.disableLighting = true;
+    sconceFlame.material = flameMat;
+    this.flameMeshes.push(sconceFlame);
   }
 }

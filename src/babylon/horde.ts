@@ -37,6 +37,7 @@ export interface BabylonZombie {
   headRadius: number;
   ragdollVel?: BABYLON.Vector3;
   ragdollSpin?: BABYLON.Vector3;
+  isCulvertTarget?: boolean;
 }
 
 export class BabylonZombieHorde {
@@ -149,7 +150,13 @@ export class BabylonZombieHorde {
     this.hpBgMat.disableLighting = true;
   }
 
-  public spawn(type: ZombieType, spawnZ = -110, spreadX = 6.5, gateZ = -28.0): BabylonZombie {
+  public spawn(
+    type: ZombieType,
+    spawnZ = -110,
+    spreadX = 6.5,
+    gateZ = -28.0,
+    targetOverride?: BABYLON.Vector3,
+  ): BabylonZombie {
     const id = this.nextId++;
     const root = new BABYLON.TransformNode(`zombie_${id}`, this.scene);
     const limbs: BABYLON.TransformNode[] = [];
@@ -168,7 +175,8 @@ export class BabylonZombieHorde {
 
     const startX = (Math.random() - 0.5) * spreadX * 2;
     const targetX = (Math.random() - 0.5) * 6.5;
-    const targetPos = new BABYLON.Vector3(targetX, 0, gateZ - 1.2);
+    const targetPos = targetOverride ? targetOverride.clone() : new BABYLON.Vector3(targetX, 0, gateZ - 1.2);
+    const isCulvertTarget = targetOverride !== undefined && targetOverride.x < -15;
 
     if (type === "runner") {
       // 1. FERAL GHOUL BERSERKER
@@ -871,6 +879,7 @@ export class BabylonZombieHorde {
       collapseProcessed: false,
       radius,
       headRadius,
+      isCulvertTarget,
     };
 
     this.zombies.push(zombie);
@@ -1152,6 +1161,7 @@ export class BabylonZombieHorde {
     onGateAttack: (dmg: number) => void,
     onBurnDeath?: (z: BabylonZombie) => void,
     onNecroPulse?: (pos: BABYLON.Vector3) => void,
+    onCulvertAttack?: (dmg: number) => void,
   ) {
     for (let i = this.zombies.length - 1; i >= 0; i--) {
       const z = this.zombies[i];
@@ -1260,12 +1270,19 @@ export class BabylonZombieHorde {
         z.hpBarMat.emissiveColor.set(0.92, 0.18, 0.14);
       }
 
-      const distToGate = Math.abs(z.pos.z - z.targetPos.z);
-      const attackDist = z.type === "ram" ? 3.5 : 1.2;
+      const isCulvert = z.isCulvertTarget || z.targetPos.x < -15;
+      const distToTarget = isCulvert
+        ? Math.hypot(z.pos.x - z.targetPos.x, z.pos.z - z.targetPos.z)
+        : Math.abs(z.pos.z - z.targetPos.z);
+      const attackDist = z.type === "ram" ? 3.5 : isCulvert ? 2.5 : 1.2;
 
-      if (distToGate <= attackDist) {
+      if (distToTarget <= attackDist) {
         if (z.type === "sapper") {
-          onGateAttack(z.damage);
+          if (isCulvert) {
+            onCulvertAttack?.(z.damage);
+          } else {
+            onGateAttack(z.damage);
+          }
           z.hp = 0;
           z.dead = true;
           onBurnDeath?.(z);
@@ -1321,7 +1338,8 @@ export class BabylonZombieHorde {
             z.pos.z += (sz / dist) * push * 0.4;
           }
         }
-        z.pos.x = Math.max(-8.2, Math.min(8.2, z.pos.x));
+        const minX = isCulvert ? -26.0 : -8.2;
+        z.pos.x = Math.max(minX, Math.min(8.2, z.pos.x));
 
         z.root.position.copyFrom(z.pos);
         z.root.rotation.y = Math.atan2(nx, nz);

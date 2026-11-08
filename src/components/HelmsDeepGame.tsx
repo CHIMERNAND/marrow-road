@@ -216,7 +216,13 @@ export function HelmsDeepGame() {
 
       {/* Optical Zoom Vignette Mask when Aiming */}
       {gameState?.isAiming && (
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_36%,rgba(0,0,0,0.88)_84%)] ring-2 ring-amber-400/50" />
+        <div
+          className={`pointer-events-none absolute inset-0 ring-2 transition-all duration-200 ${
+            gameState.holdingBreath
+              ? "bg-[radial-gradient(circle_at_center,transparent_20%,rgba(0,0,0,0.95)_72%)] ring-cyan-400/80 shadow-[inset_0_0_120px_rgba(0,0,0,0.95)]"
+              : "bg-[radial-gradient(circle_at_center,transparent_36%,rgba(0,0,0,0.88)_84%)] ring-amber-400/50"
+          }`}
+        />
       )}
 
       {/* Arcane Runic Night-Sight Optics Filter */}
@@ -317,6 +323,26 @@ export function HelmsDeepGame() {
               }`}
             >
               ENHANCE {(gameState.zoomLevel || 2.4).toFixed(1)}x [SCROLL / Z] • {gameState.nightSightActive ? "RUNIC NIGHT-SIGHT [T]" : "OPTIC [T]"}
+            </div>
+
+            {/* Steady Aim Lung Stamina Gauge */}
+            <div className="absolute -bottom-9 flex flex-col items-center gap-0.5">
+              <div className="flex items-center gap-1.5 text-[9px] font-mono font-bold tracking-widest uppercase">
+                <span className={gameState.holdingBreath ? "text-cyan-300 animate-pulse" : "text-stone-400"}>
+                  {gameState.holdingBreath ? "● STEADY AIM LOCKED" : "HOLD [SPACE / SHIFT] STEADY"}
+                </span>
+                <span className="text-amber-300">{gameState.breathStamina ?? 100}%</span>
+              </div>
+              <div className="w-28 h-1.5 rounded-full bg-stone-900/90 border border-stone-700/80 overflow-hidden p-0.5">
+                <div
+                  className={`h-full rounded-full transition-all duration-75 ${
+                    gameState.holdingBreath
+                      ? "bg-gradient-to-r from-cyan-500 to-cyan-300 shadow-[0_0_8px_#22d3ee]"
+                      : "bg-gradient-to-r from-amber-600 to-amber-400"
+                  }`}
+                  style={{ width: `${gameState.breathStamina ?? 100}%` }}
+                />
+              </div>
             </div>
           </div>
         ) : (
@@ -509,13 +535,51 @@ export function HelmsDeepGame() {
               style={{ width: `${gateHealthPercent}%` }}
             />
           </div>
-          {(gateHealthPercent < 100 || (gameState?.powderBarrelsRemaining ?? 8) < 8) && (
+
+          {/* Deeping Wall Culvert Drain Indicator */}
+          <div className="w-full mt-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider drop-shadow">
+            <span className="flex items-center gap-1 text-stone-200">
+              <Bomb className="w-3 h-3 text-orange-400" />
+              Deeping Culvert Drain
+            </span>
+            <span
+              className={
+                gameState?.culvertBreached
+                  ? "text-red-400 font-black animate-pulse"
+                  : (gameState?.culvertHp ?? 400) < 180
+                  ? "text-orange-400 font-bold"
+                  : "text-stone-300"
+              }
+            >
+              {gameState?.culvertBreached ? "⚠️ BREACHED" : `${gameState?.culvertHp ?? 400} / ${gameState?.maxCulvertHp ?? 400} HP`}
+            </span>
+          </div>
+          <div className="w-full h-1.5 rounded-full bg-stone-900/90 border border-stone-700/80 p-0.5 overflow-hidden shadow">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${
+                gameState?.culvertBreached
+                  ? "bg-red-600 animate-pulse"
+                  : ((gameState?.culvertHp ?? 400) / (gameState?.maxCulvertHp ?? 400)) > 0.45
+                  ? "bg-gradient-to-r from-sky-500 to-blue-400"
+                  : "bg-gradient-to-r from-orange-500 to-red-400"
+              }`}
+              style={{
+                width: `${
+                  gameState?.culvertBreached
+                    ? 0
+                    : Math.max(0, Math.min(100, ((gameState?.culvertHp ?? 400) / (gameState?.maxCulvertHp ?? 400)) * 100))
+                }%`,
+              }}
+            />
+          </div>
+
+          {(gateHealthPercent < 100 || (gameState?.culvertHp ?? 400) < 400 || (gameState?.powderBarrelsRemaining ?? 8) < 8) && (
             <button
               onClick={handleRepair}
               className="pointer-events-auto mt-1.5 px-3 py-1 bg-stone-900/90 hover:bg-stone-800 border border-amber-400/50 text-amber-300 text-[11px] font-bold rounded-lg flex items-center gap-1.5 transition shadow cursor-pointer"
             >
               <Wrench className="w-3.5 h-3.5 text-amber-400" />
-              Reinforce Gate & Restock Casks [100 Gold / Key R]
+              Reinforce Defenses & Restock Casks [100 Gold / Key R]
             </button>
           )}
           {(gameState?.bossHp || 0) > 0 && (
@@ -739,6 +803,21 @@ export function HelmsDeepGame() {
               {ab.id === "archer_volley" && <Swords className="w-4 h-4 text-emerald-400 ml-1" />}
             </button>
           ))}
+        </div>
+
+        {/* Quick Tactical Controls Pill */}
+        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-stone-950/85 border border-stone-800/80 text-[10px] font-mono font-semibold text-stone-400 shadow-xl backdrop-blur-md">
+          <span><strong className="text-amber-300 font-bold">Aim:</strong> R-Click</span>
+          <span>•</span>
+          <span><strong className="text-cyan-300 font-bold">Steady Aim:</strong> Space / Shift</span>
+          <span>•</span>
+          <span><strong className="text-amber-300 font-bold">Quiver:</strong> Q / Click</span>
+          <span>•</span>
+          <span><strong className="text-cyan-300 font-bold">Optics:</strong> T</span>
+          <span>•</span>
+          <span><strong className="text-amber-300 font-bold">Upgrade:</strong> G</span>
+          <span>•</span>
+          <span><strong className="text-amber-300 font-bold">Repair:</strong> R</span>
         </div>
       </div>
 

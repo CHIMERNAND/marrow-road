@@ -435,6 +435,149 @@ export class BabylonHelmsVFX {
     });
   }
 
+  public spawnFlyingHelmet(pos: BABYLON.Vector3, hitDir: BABYLON.Vector3) {
+    const helmet = BABYLON.MeshBuilder.CreateCylinder(
+      "flyingHornedHelmet",
+      { diameterTop: 0.15, diameterBottom: 0.55, height: 0.65, tessellation: 8 },
+      this.scene,
+    );
+    helmet.position.copyFrom(pos);
+    helmet.material = this.ironDebrisMat;
+
+    const impulse = hitDir.normalize().scale(7 + Math.random() * 5);
+    impulse.y = 8 + Math.random() * 5;
+    impulse.x += (Math.random() - 0.5) * 5;
+
+    this.particles.push({
+      mesh: helmet,
+      vel: impulse,
+      rotVel: new BABYLON.Vector3(
+        (Math.random() - 0.5) * 16,
+        (Math.random() - 0.5) * 16,
+        (Math.random() - 0.5) * 16,
+      ),
+      life: 3.5,
+      maxLife: 3.5,
+      scaleSpeed: 0,
+      bounces: true,
+    });
+  }
+
+  public spawnBloodFountain(pos: BABYLON.Vector3) {
+    for (let i = 0; i < 14; i++) {
+      const drop = BABYLON.MeshBuilder.CreateSphere(
+        "bloodFountain",
+        { diameter: 0.18 + Math.random() * 0.14, segments: 4 },
+        this.scene,
+      );
+      drop.position.set(
+        pos.x + (Math.random() - 0.5) * 0.2,
+        pos.y,
+        pos.z + (Math.random() - 0.5) * 0.2,
+      );
+      drop.material = this.bloodMat;
+      this.particles.push({
+        mesh: drop,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 3,
+          Math.random() * 6 + 4,
+          (Math.random() - 0.5) * 3,
+        ),
+        life: 0.85,
+        maxLife: 0.85,
+        scaleSpeed: -0.15,
+        bounces: true,
+      });
+    }
+  }
+
+  public spawnCulvertBreachDebris(pos: BABYLON.Vector3) {
+    for (let i = 0; i < 18; i++) {
+      const stone = BABYLON.MeshBuilder.CreatePolyhedron(
+        "culvertStone",
+        { type: 1, size: 0.6 + Math.random() * 0.65 },
+        this.scene,
+      );
+      stone.position.copyFrom(pos);
+      stone.material = this.stoneMat;
+      this.particles.push({
+        mesh: stone,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 18,
+          Math.random() * 12 + 6,
+          (Math.random() - 0.5) * 18,
+        ),
+        rotVel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+        ),
+        life: 4.0,
+        maxLife: 4.0,
+        scaleSpeed: 0,
+        bounces: true,
+      });
+    }
+
+    for (let i = 0; i < 8; i++) {
+      const bar = BABYLON.MeshBuilder.CreateCylinder(
+        "culvertIronBar",
+        { diameter: 0.16, height: 1.8 + Math.random() * 1.2, tessellation: 6 },
+        this.scene,
+      );
+      bar.position.copyFrom(pos);
+      bar.material = this.ironDebrisMat;
+      this.particles.push({
+        mesh: bar,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 16,
+          Math.random() * 10 + 5,
+          (Math.random() - 0.5) * 16,
+        ),
+        rotVel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 12,
+          (Math.random() - 0.5) * 12,
+        ),
+        life: 4.0,
+        maxLife: 4.0,
+        scaleSpeed: 0,
+        bounces: true,
+      });
+    }
+
+    this.spawnExplosion(pos, 10);
+  }
+
+  public spawnArmorDebris(pos: BABYLON.Vector3) {
+    for (let i = 0; i < 6; i++) {
+      const scrap = BABYLON.MeshBuilder.CreateBox(
+        "armorScrap",
+        { width: 0.35, height: 0.45, depth: 0.08 },
+        this.scene,
+      );
+      scrap.position.copyFrom(pos);
+      scrap.material = Math.random() < 0.5 ? this.ironDebrisMat : this.woodDebrisMat;
+      this.particles.push({
+        mesh: scrap,
+        vel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 9,
+          Math.random() * 7 + 3,
+          (Math.random() - 0.5) * 9,
+        ),
+        rotVel: new BABYLON.Vector3(
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+          (Math.random() - 0.5) * 14,
+        ),
+        life: 2.8,
+        maxLife: 2.8,
+        scaleSpeed: 0,
+        bounces: true,
+      });
+    }
+  }
+
   public update(dt: number) {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];

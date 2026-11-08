@@ -42,6 +42,8 @@ export class BabylonHelmsPlayer {
   public zoomLevel = 2.4; // Adjustable 1.8x .. 4.5x when aiming!
   public nightSightActive = false; // Arcane Night-Sight Runic Optics
   public currentAmmo: BoltAmmoType = "bodkin";
+  public holdingBreath = false; // Sniper Focus Steady Aim
+  public breathStamina = 100; // 0..100% Stamina bar
 
   public stats: PlayerWeaponStats = {
     damage: 56,
@@ -65,6 +67,9 @@ export class BabylonHelmsPlayer {
   private crankWheelR!: BABYLON.Mesh;
   private loadedBoltGroup!: BABYLON.TransformNode;
   private loadedBroadhead!: BABYLON.Mesh;
+  private loadedFlameMesh!: BABYLON.Mesh;
+  private loadedFrostMesh!: BABYLON.Mesh;
+  private loadedFinsMesh!: BABYLON.Mesh;
   private fpLeftArmNode!: BABYLON.TransformNode;
   private fpRightArmNode!: BABYLON.TransformNode;
 
@@ -123,6 +128,18 @@ export class BabylonHelmsPlayer {
     if (this.loadedBroadhead) {
       this.loadedBroadhead.material = this.getAmmoMaterial(ammo);
     }
+    if (this.loadedFlameMesh) this.loadedFlameMesh.setEnabled(ammo === "fire");
+    if (this.loadedFrostMesh) this.loadedFrostMesh.setEnabled(ammo === "frost");
+    if (this.loadedFinsMesh) this.loadedFinsMesh.setEnabled(ammo === "scatter");
+  }
+
+  public setHoldingBreath(hold: boolean): boolean {
+    if (hold && this.isAiming && this.breathStamina > 15) {
+      this.holdingBreath = true;
+      return true;
+    }
+    this.holdingBreath = false;
+    return false;
   }
 
   public cycleAmmo(): BoltAmmoType {
@@ -318,6 +335,39 @@ export class BabylonHelmsPlayer {
     this.loadedBroadhead.material = this.bodkinMat;
     this.loadedBroadhead.parent = this.loadedBoltGroup;
 
+    // First-Person Dragonfire Pitch Flame Tip (flickering orange flame)
+    this.loadedFlameMesh = BABYLON.MeshBuilder.CreateSphere(
+      "cbFlameTip",
+      { diameter: 0.052, segments: 6 },
+      this.scene,
+    );
+    this.loadedFlameMesh.position.set(0.34, -0.26, -0.96);
+    this.loadedFlameMesh.material = this.fireBoltMat;
+    this.loadedFlameMesh.parent = this.loadedBoltGroup;
+    this.loadedFlameMesh.setEnabled(false);
+
+    // First-Person Frostbite Runic Tip (sharp cyan crystal polyhedron)
+    this.loadedFrostMesh = BABYLON.MeshBuilder.CreatePolyhedron(
+      "cbFrostTip",
+      { type: 1, size: 0.035 },
+      this.scene,
+    );
+    this.loadedFrostMesh.position.set(0.34, -0.26, -0.96);
+    this.loadedFrostMesh.material = this.frostBoltMat;
+    this.loadedFrostMesh.parent = this.loadedBoltGroup;
+    this.loadedFrostMesh.setEnabled(false);
+
+    // First-Person Triple Broadhead Fins (wide razor wings)
+    this.loadedFinsMesh = BABYLON.MeshBuilder.CreateBox(
+      "cbFinsTip",
+      { width: 0.082, height: 0.008, depth: 0.075 },
+      this.scene,
+    );
+    this.loadedFinsMesh.position.set(0.34, -0.26, -0.91);
+    this.loadedFinsMesh.material = this.scatterBoltMat;
+    this.loadedFinsMesh.parent = this.loadedBoltGroup;
+    this.loadedFinsMesh.setEnabled(false);
+
     // -------------------------------------------------------------
     // FIRST-PERSON ARMORED ELVEN DEFENDER GAUNTLETS & FOREARMS
     // -------------------------------------------------------------
@@ -462,9 +512,19 @@ export class BabylonHelmsPlayer {
     const sx = (Math.random() - 0.5) * shakeMag;
     const sy = (Math.random() - 0.5) * shakeMag;
 
-    this.breathTimer += dt * (this.isAiming ? 1.0 : 1.8);
-    const breathX = Math.sin(this.breathTimer * 0.8) * (this.isAiming ? 0.001 : 0.0035);
-    const breathY = Math.cos(this.breathTimer * 1.6) * (this.isAiming ? 0.001 : 0.0028);
+    const isSteadying = this.isAiming && this.holdingBreath && this.breathStamina > 0;
+    if (isSteadying) {
+      this.breathStamina = Math.max(0, this.breathStamina - dt * 28);
+      if (this.breathStamina <= 0) {
+        this.holdingBreath = false;
+      }
+    } else {
+      this.breathStamina = Math.min(100, this.breathStamina + dt * 24);
+    }
+
+    this.breathTimer += dt * (isSteadying ? 0 : this.isAiming ? 1.0 : 1.8);
+    const breathX = isSteadying ? 0 : Math.sin(this.breathTimer * 0.8) * (this.isAiming ? 0.001 : 0.0035);
+    const breathY = isSteadying ? 0 : Math.cos(this.breathTimer * 1.6) * (this.isAiming ? 0.001 : 0.0028);
 
     this.camera.position.set(this.currentX + sx + breathX, this.currentY + sy + breathY, -7.4);
 
@@ -473,7 +533,8 @@ export class BabylonHelmsPlayer {
 
     const adsLerp = Math.min(1, 1 - Math.exp(-22 * dt));
     const baseDeg = 62;
-    const zoomedDeg = baseDeg / this.zoomLevel;
+    const steadyZoomMul = isSteadying ? 1.15 : 1.0;
+    const zoomedDeg = baseDeg / (this.zoomLevel * steadyZoomMul);
     const targetFov = ((this.isAiming ? zoomedDeg : baseDeg) * Math.PI) / 180;
     this.camera.fov += (targetFov - this.camera.fov) * adsLerp;
 
@@ -496,6 +557,13 @@ export class BabylonHelmsPlayer {
       }
       if (this.loadedBoltGroup) {
         this.loadedBoltGroup.position.z = -reloadRatio * 0.16;
+      }
+      if (this.loadedFlameMesh && this.currentAmmo === "fire") {
+        const flicker = 1 + Math.sin(this.breathTimer * 20) * 0.22;
+        this.loadedFlameMesh.scaling.set(flicker, flicker * 1.3, flicker);
+      }
+      if (this.loadedFrostMesh && this.currentAmmo === "frost") {
+        this.loadedFrostMesh.rotation.z += dt * 3.2;
       }
     }
   }
