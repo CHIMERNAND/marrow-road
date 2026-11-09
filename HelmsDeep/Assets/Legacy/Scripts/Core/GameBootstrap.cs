@@ -7,6 +7,9 @@ namespace HelmsDeep
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoBootstrap()
         {
+            // Legacy web-port prototype: only boots in the old SampleScene.
+            // The M1 slice (Siege_Graybox) is an authored scene and must not get this runtime world.
+            if (UnityEngine.SceneManagement.SceneManager.GetActiveScene().name != "SampleScene") return;
             if (Object.FindFirstObjectByType<GameBootstrap>() != null) return;
             var go = new GameObject("HelmsDeepBootstrap");
             go.AddComponent<GameBootstrap>();
