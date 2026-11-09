@@ -113,7 +113,11 @@ namespace MarrowRoad
 
             var t = hit.collider.transform;
             var ls = t.lossyScale;
-            if (Mathf.Abs(ls.x - 1f) < 0.01f && Mathf.Abs(ls.y - 1f) < 0.01f && Mathf.Abs(ls.z - 1f) < 0.01f)
+            // Parent only under uniformly scaled transforms (zombies use random uniform scale);
+            // non-uniform parents (scaled primitives) would shear the bolt.
+            var maxS = Mathf.Max(ls.x, Mathf.Max(ls.y, ls.z));
+            var minS = Mathf.Min(ls.x, Mathf.Min(ls.y, ls.z));
+            if (minS > 0f && maxS - minS < 0.01f * maxS)
                 transform.SetParent(t, true);
             onResolved?.Invoke(info, hitEnemy);
             Stuck.Enqueue(this);

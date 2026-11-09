@@ -40,6 +40,7 @@ namespace MarrowRoad
         int toSpawn;
         float spawnTimer;
         bool waveSpawningDone;
+        int waveSpawnFailures;
         readonly List<Vector3> gatePoints = new List<Vector3>();
 
         void Awake()
@@ -125,6 +126,7 @@ namespace MarrowRoad
             toSpawn = 12 + 8 * State.Wave;
             spawnTimer = 0f;
             waveSpawningDone = false;
+            waveSpawnFailures = 0;
         }
 
         void Update()
@@ -173,8 +175,22 @@ namespace MarrowRoad
                     {
                         var at = c + new Vector3(Random.Range(-3f, 3f), 0, Random.Range(-3f, 3f));
                         var z = Spawner.Spawn(this, at, gatePoints[Random.Range(0, gatePoints.Count)]);
-                        if (z == null) SpawnFailures++;
-                        toSpawn--;
+                        if (z != null)
+                        {
+                            toSpawn--;
+                            continue;
+                        }
+
+                        // Retry next tick so the wave keeps its full count; give up only if the NavMesh is broken.
+                        SpawnFailures++;
+                        waveSpawnFailures++;
+                        if (waveSpawnFailures > 200)
+                        {
+                            Debug.LogError($"[MarrowRoad] Spawn zone is off the NavMesh; dropping {toSpawn} zombies from wave {State.Wave}.");
+                            toSpawn = 0;
+                        }
+
+                        break;
                     }
                 }
             }
