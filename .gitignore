@@ -1,10 +1,39 @@
-node_modules
-.vercel
-dist
-.grok
-screenshots
-artifacts
-*.log
+# Unity generated
+HelmsDeep/[Ll]ibrary/
+HelmsDeep/[Tt]emp/
+HelmsDeep/[Oo]bj/
+HelmsDeep/[Ll]ogs/
+HelmsDeep/[Uu]ser[Ss]ettings/
+HelmsDeep/[Bb]uild/
+HelmsDeep/[Bb]uilds/
+HelmsDeep/[Rr]ecordings/
+HelmsDeep/MemoryCaptures/
+HelmsDeep/*.csproj
+HelmsDeep/*.sln
+HelmsDeep/*.slnx
+HelmsDeep/*.user
+HelmsDeep/*.pidb
+HelmsDeep/*.booproj
+HelmsDeep/*.unityproj
+HelmsDeep/.vs/
+HelmsDeep/.idea/
+HelmsDeep/*_BurstDebugInformation_DoNotShip/
+
+# Third-party binaries (install locally, never commit)
+HelmsDeep/Tools/ffmpeg.exe
+HelmsDeep/Tools/*.exe
+
+# Licensed store assets (Fab Standard / Asset Store) must NOT be redistributed in a public repo.
+# Import them into this folder locally; see Design/ASSET_PIPELINE.md.
+HelmsDeep/Assets/ThirdParty/Licensed/
+
+# Asset-generation working files
+pipeline/out/
+pipeline/cache/
+
+# OS / misc
 .DS_Store
+Thumbs.db
+*.log
 .env
 .env.*
