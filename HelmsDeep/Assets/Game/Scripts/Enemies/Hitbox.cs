@@ -7,6 +7,7 @@ namespace MarrowRoad
     {
         public float multiplier = 1f;
         public bool isHead;
+        public bool armored;
         public IDamageable Owner;
     }
 }

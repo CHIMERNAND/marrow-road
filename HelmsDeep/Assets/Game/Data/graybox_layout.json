@@ -832,11 +832,29 @@
  ],
  "sockets": [
   {
+   "name": "Socket_Bastion1",
+   "p": [
+    0,
+    20.0,
+    -3.5
+   ],
+   "allow": [
+    "crossbow",
+    "ballista",
+    "catapult"
+   ]
+  },
+  {
    "name": "Socket_Bastion2",
    "p": [
     70,
     20.0,
     -3.5
+   ],
+   "allow": [
+    "crossbow",
+    "ballista",
+    "catapult"
    ]
   },
   {
@@ -845,6 +863,10 @@
     110,
     20.0,
     2.6
+   ],
+   "allow": [
+    "crossbow",
+    "ballista"
    ]
   },
   {
@@ -853,8 +875,61 @@
     131.5,
     20.0,
     -1.2
+   ],
+   "allow": [
+    "crossbow",
+    "ballista",
+    "catapult"
+   ]
+  },
+  {
+   "name": "Socket_GateTowerE",
+   "p": [
+    148.5,
+    20.0,
+    -1.2
+   ],
+   "allow": [
+    "crossbow",
+    "ballista",
+    "catapult"
+   ]
+  },
+  {
+   "name": "Socket_OverGate",
+   "p": [
+    140,
+    20.0,
+    2.0
+   ],
+   "allow": [
+    "pitch"
    ]
   }
+ ],
+ "ladders": [
+  {
+   "name": "Ladder_East",
+   "x": 92.25,
+   "baseZ": -6.5,
+   "topY": 21.0
+  },
+  {
+   "name": "Ladder_West",
+   "x": 40.75,
+   "baseZ": -6.5,
+   "topY": 21.0
+  }
+ ],
+ "keepTarget": [
+  161,
+  10.0,
+  20.0
+ ],
+ "keepDoor": [
+  161,
+  10.0,
+  21.7
  ],
  "dummies": [
   {

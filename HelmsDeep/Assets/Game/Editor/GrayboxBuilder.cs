@@ -2,7 +2,9 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Unity.AI.Navigation;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
@@ -17,6 +19,7 @@ namespace MarrowRoad.EditorTools
     {
         public const string ScenePath = "Assets/Scenes/Siege_Graybox.unity";
         const string LayoutPath = "Assets/Game/Data/graybox_layout.json";
+        public const string BalancePath = "Assets/Game/Data/balance.json";
         const string Gen = "Assets/Game/Generated";
         const float MerlonW = 1.2f, MerlonGap = 1.1f, MerlonH = 1.2f, BreastH = 1.0f;
 
@@ -60,7 +63,10 @@ namespace MarrowRoad.EditorTools
             foreach (var p in layout.parapets) MakeParapet(parapets, p, true);
             foreach (var p in layout.rails) MakeParapet(parapets, p, false);
 
+            var balanceAsset = AssetDatabase.LoadAssetAtPath<TextAsset>(BalancePath);
+            if (balanceAsset == null) throw new System.Exception("Missing " + BalancePath);
             var gate = MakeGate(level, layout);
+            var keep = MakeKeepDoor(level, layout);
             MakeSockets(level, layout);
             MakeDummies(level, layout);
             MakeLighting(layout);
@@ -68,7 +74,9 @@ namespace MarrowRoad.EditorTools
 
             var director = systems.AddComponent<SiegeDirector>();
             director.layoutJson = layoutAsset;
+            director.balanceJson = balanceAsset;
             director.gate = gate;
+            director.keepDoor = keep;
             systems.AddComponent<SiegeHud>();
             systems.AddComponent<NightAmbience>();
 
@@ -178,7 +186,39 @@ namespace MarrowRoad.EditorTools
 
             gate.leafLeft = Leaf("LeafW", -4f);
             gate.leafRight = Leaf("LeafE", 4f);
+            // Leaves stay out of the NavMesh bake; a carving obstacle closes the passage until the gate breaks.
+            var mod = root.AddComponent<NavMeshModifier>();
+            mod.ignoreFromBuild = true;
+            mod.applyToChildren = true;
+            var ob = root.AddComponent<NavMeshObstacle>();
+            ob.shape = NavMeshObstacleShape.Box;
+            ob.center = new Vector3(0, 3.5f, 0.1f);
+            ob.size = new Vector3(8.4f, 7f, 1.2f);
+            ob.carving = true;
+            ob.carveOnlyStationary = false;
+            gate.blocker = ob;
             return gate;
+        }
+
+        static KeepDoor MakeKeepDoor(Transform parent, GrayboxLayout layout)
+        {
+            var c = GrayboxLayout.V(layout.keepDoor);
+            var root = new GameObject("KeepDoor");
+            root.transform.SetParent(parent, false);
+            root.transform.localPosition = c;
+            var k = root.AddComponent<KeepDoor>();
+            k.door = Solid(root.transform, "Door", new Vector3(0, 3f, 0), new Vector3(4.6f, 6f, 0.5f), lib.gate).transform;
+            Solid(root.transform, "Lintel", new Vector3(0, 6.3f, -0.05f), new Vector3(5.6f, 0.6f, 0.6f), lib.tower, false);
+            var planks = new List<Transform>();
+            for (var i = 0; i < 5; i++)
+            {
+                var p = Solid(root.transform, "Barricade_" + i, new Vector3(0, 0.7f + i * 1.05f, -0.55f), new Vector3(6.2f, 0.32f, 0.16f), lib.wood, false).transform;
+                p.localRotation = Quaternion.Euler(0, 0, (i % 2 == 0 ? 7f : -6f));
+                planks.Add(p);
+            }
+
+            k.planks = planks.ToArray();
+            return k;
         }
 
         static void MakeSockets(Transform parent, GrayboxLayout layout)
@@ -188,7 +228,9 @@ namespace MarrowRoad.EditorTools
                 var go = new GameObject(s.name);
                 go.transform.SetParent(parent, false);
                 go.transform.localPosition = GrayboxLayout.V(s.p);
-                go.AddComponent<TurretSocket>().socketName = s.name;
+                var sock = go.AddComponent<TurretSocket>();
+                sock.socketName = s.name;
+                sock.allow = s.allow;
                 Solid(go.transform, "Marker", new Vector3(0, 0.02f, 0), new Vector3(1.4f, 0.04f, 1.4f), lib.socket, false, false);
                 Solid(go.transform, "Post", new Vector3(0, 0.6f, 0), new Vector3(0.12f, 1.2f, 0.12f), lib.socket, false, false);
             }
@@ -351,7 +393,7 @@ namespace MarrowRoad.EditorTools
             PlayerSettings.defaultScreenWidth = 1920;
             PlayerSettings.defaultScreenHeight = 1080;
             PlayerSettings.resizableWindow = true;
-            PlayerSettings.bundleVersion = "0.1.0-m1";
+            PlayerSettings.bundleVersion = "0.2.0-m2";
         }
 
         static void SetFloat(SerializedObject so, string n, float v)
