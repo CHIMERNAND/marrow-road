@@ -19,7 +19,10 @@ namespace MarrowRoad
         public float[] gateTarget = { 140f, 10f, -2f };
         public float[] spawnMin = { 90f, 0f, -230f };
         public float[] spawnMax = { 200f, 0f, -170f };
-        public LayoutPoint[] sockets = Array.Empty<LayoutPoint>();
+        public LayoutSocket[] sockets = Array.Empty<LayoutSocket>();
+        public LayoutLadder[] ladders = Array.Empty<LayoutLadder>();
+        public float[] keepTarget = { 161f, 10f, 20f };
+        public float[] keepDoor = { 161f, 10f, 21.7f };
         public LayoutPoint[] dummies = Array.Empty<LayoutPoint>();
         public LayoutTorch[] torchList = Array.Empty<LayoutTorch>();
 
@@ -62,6 +65,23 @@ namespace MarrowRoad
     {
         public string name;
         public float[] p;
+    }
+
+    [Serializable]
+    public sealed class LayoutSocket
+    {
+        public string name;
+        public float[] p;
+        public string[] allow = Array.Empty<string>();
+    }
+
+    [Serializable]
+    public sealed class LayoutLadder
+    {
+        public string name;
+        public float x;
+        public float baseZ = -6.5f;
+        public float topY = 21f;
     }
 
     [Serializable]

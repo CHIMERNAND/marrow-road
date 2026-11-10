@@ -1,0 +1,10 @@
+{
+  "max_errors": 0,
+  "max_spawn_failures": 0,
+  "min_avg_fps": 60,
+  "max_p99_ms": 25,
+  "max_spikes_over_33ms": 40,
+  "max_wave_drop_vs_previous": 1,
+  "max_fps_drop_pct_vs_previous": 15,
+  "require_completed_run": true
+}

@@ -1,4 +1,5 @@
 # Marrow Road - M1 verification on the G15.
+# Superseded by Tools\Verify.ps1 (M2+); kept for the M1 record.
 # 1) syncs D:\Dev\marrow-road to the m1/graybox-slice branch (backs up anything it replaces),
 # 2) builds the graybox scene + Windows player with Unity in batch mode,
 # 3) runs the player's automated capture pass at 1920x1080 and prints report.json.

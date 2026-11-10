@@ -1,4 +1,4 @@
-# Source of truth for the M1 graybox layout. Run: python3 gen_layout.py  -> graybox_layout.json
+# Source of truth for the graybox layout. Run: python3 gen_layout.py  -> graybox_layout.json
 # Units: metres. Enemy valley is -Z. Wall face at z=0. Up is +Y.
 import json
 boxes=[]
@@ -48,6 +48,14 @@ for i in range(6):
     z0=-76+i*10; z1=z0+10; h=(i+0.5)*10/6
     slab(f"CausewayFill_{i}","wall",136,144,0,max(0.2,h-1.2),z0,z1)
 
+MERLON_W,MERLON_GAP=1.2,1.1
+def crenel(x0,x1,near):
+    """Centre x of the merlon gap closest to `near` (mirrors GrayboxBuilder.MakeParapet)."""
+    L=x1-x0; pitch=MERLON_W+MERLON_GAP; n=int((L+MERLON_GAP)//pitch)
+    used=n*MERLON_W+(n-1)*MERLON_GAP; start=x0+(L-used)/2+MERLON_W/2
+    gaps=[start+i*pitch+pitch/2 for i in range(n-1)]
+    return round(min(gaps,key=lambda g:abs(g-near)),3)
+
 parapets=[ # breastwork + merlons on the valley side of each wall-walk run (axis x unless noted)
   dict(name="Parapet_Deeping_0",x0=-120,x1=-76,z=0.5,y=WALL_TOP,thick=1.0),
   dict(name="Parapet_Deeping_1",x0=-64,x1=-6,z=0.5,y=WALL_TOP,thick=1.0),
@@ -76,8 +84,20 @@ layout=dict(
   gateCenter=[140,13.5,0.0],
   gateTarget=[140,10.0,-2.0],
   spawnMin=[100,0,-175], spawnMax=[190,0,-135],
-  sockets=[dict(name="Socket_Bastion2",p=[70,WALL_TOP,-3.5]), dict(name="Socket_WallEast",p=[110,WALL_TOP,2.6]),
-           dict(name="Socket_GateTowerW",p=[131.5,WALL_TOP,-1.2])],
+  sockets=[
+    dict(name="Socket_Bastion1",p=[0,WALL_TOP,-3.5],allow=["crossbow","ballista","catapult"]),
+    dict(name="Socket_Bastion2",p=[70,WALL_TOP,-3.5],allow=["crossbow","ballista","catapult"]),
+    dict(name="Socket_WallEast",p=[110,WALL_TOP,2.6],allow=["crossbow","ballista"]),
+    dict(name="Socket_GateTowerW",p=[131.5,WALL_TOP,-1.2],allow=["crossbow","ballista","catapult"]),
+    dict(name="Socket_GateTowerE",p=[148.5,WALL_TOP,-1.2],allow=["crossbow","ballista","catapult"]),
+    dict(name="Socket_OverGate",p=[140,WALL_TOP,2.0],allow=["pitch"]),
+  ],
+  # Ladder zones: climbers raise a siege ladder against the wall face at a crenel and come over the top.
+  ladders=[dict(name="Ladder_East",x=crenel(76,120,92),baseZ=-6.5,topY=WALL_TOP+1.0),
+           dict(name="Ladder_West",x=crenel(6,64,41),baseZ=-6.5,topY=WALL_TOP+1.0)],
+  # Fall-back point: when the gate breaks the dead push across the court to the keep door.
+  keepTarget=[161,10.0,20.0],
+  keepDoor=[161,10.0,21.7],
   dummies=[dict(name="ScaleDummy_WallBase",p=[92,0,-3]), dict(name="ScaleDummy_Causeway",p=[140,5,-46]),
            dict(name="ScaleDummy_WallWalk",p=[92,WALL_TOP,3.0])],
   torchList=[dict(p=[x,WALL_TOP+2.2,1.2]) for x in range(-110,121,20)] + [dict(p=[133,18,-4.6]),dict(p=[147,18,-4.6])],

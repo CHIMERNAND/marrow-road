@@ -34,7 +34,11 @@ namespace MarrowRoad
     /// <summary>Command-line switches.</summary>
     public static class LaunchArgs
     {
-        public static string CaptureDir => Value("-m1capture");
+        /// <summary>"-capture &lt;dir&gt;" runs the automated verification pass ("-m1capture" still works).</summary>
+        public static string CaptureDir => Value("-capture") ?? Value("-m1capture");
+
+        /// <summary>"-capturewaves N": stop the automated run after N waves (default: the whole night).</summary>
+        public static int CaptureWaves => int.TryParse(Value("-capturewaves"), out var n) ? n : 0;
 
         public static string Value(string flag)
         {

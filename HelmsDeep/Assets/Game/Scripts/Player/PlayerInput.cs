@@ -13,7 +13,9 @@ namespace MarrowRoad
         public Vector2 Look;
         public bool Sprint, Crouch, Jump;
         public float Lean;
-        public bool Fire, Aim, Build, Pause;
+        public bool Fire, Aim, Build, Pause, Repair;
+        /// <summary>1..4 = build the nth turret a free socket allows (number keys).</summary>
+        public int BuildChoice;
     }
 
     public static class LocalInput
@@ -37,6 +39,11 @@ namespace MarrowRoad
                 i.Lean = (kb.eKey.isPressed ? 1f : 0f) - (kb.qKey.isPressed ? 1f : 0f);
                 i.Build = kb.fKey.wasPressedThisFrame;
                 i.Pause = kb.escapeKey.wasPressedThisFrame;
+                i.Repair = kb.rKey.wasPressedThisFrame;
+                if (kb.digit1Key.wasPressedThisFrame) i.BuildChoice = 1;
+                else if (kb.digit2Key.wasPressedThisFrame) i.BuildChoice = 2;
+                else if (kb.digit3Key.wasPressedThisFrame) i.BuildChoice = 3;
+                else if (kb.digit4Key.wasPressedThisFrame) i.BuildChoice = 4;
             }
 
             if (mouse != null && allowLook)
