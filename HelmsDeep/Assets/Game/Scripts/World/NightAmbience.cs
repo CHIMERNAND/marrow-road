@@ -8,9 +8,9 @@ namespace MarrowRoad
     /// </summary>
     public sealed class NightAmbience : MonoBehaviour
     {
-        public Color sky = new Color(0.11f, 0.13f, 0.2f);
-        public Color equator = new Color(0.06f, 0.065f, 0.085f);
-        public Color ground = new Color(0.025f, 0.025f, 0.03f);
+        public Color sky = new Color(0.2f, 0.235f, 0.36f);
+        public Color equator = new Color(0.11f, 0.12f, 0.155f);
+        public Color ground = new Color(0.045f, 0.045f, 0.055f);
 
         void Awake()
         {

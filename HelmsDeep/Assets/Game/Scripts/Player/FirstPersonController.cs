@@ -33,6 +33,9 @@ namespace MarrowRoad
         float verticalVel;
         float height = StandHeight;
         float lean;
+        float peek;
+        public const float MaxPeek = 1.25f;
+        public float Peek => peek;
         float bobPhase;
         Vector3 planarVel;
 
@@ -85,6 +88,7 @@ namespace MarrowRoad
             Pitch = pitch;
             verticalVel = 0;
             planarVel = Vector3.zero;
+            peek = 0f;
             ApplyRotation();
         }
 
@@ -142,9 +146,39 @@ namespace MarrowRoad
             // Lean: only while not sprinting. Pivot sits at the hips so the head arcs out.
             lean = Mathf.MoveTowards(lean, Sprinting ? 0 : input.Lean, dt * 4f);
 
+            UpdatePeek(dt);
+
             // Head bob scaled by speed; subtle so it reads as weight, not nausea.
             if (cc.isGrounded) bobPhase += dt * Mathf.Lerp(0f, 11f, planarVel.magnitude / sprintSpeed + 0.25f * Mathf.Min(1f, planarVel.magnitude));
             ApplyRotation();
+        }
+
+        /// <summary>
+        /// Parapet lean-over. Standing against a breastwork and looking down pushes the head out over it
+        /// (like bracing your chest on the stone), so you can see and shoot the wall base and the gate.
+        /// A head-height sphere cast stops the head at merlons, so it only works through a crenel.
+        /// </summary>
+        void UpdatePeek(float dt)
+        {
+            var want = 0f;
+            var fwd = Quaternion.Euler(0, Yaw, 0) * Vector3.forward;
+            const int mask = ~(1 << 2);
+            if (cc.isGrounded && !Sprinting)
+            {
+                var chest = transform.position + Vector3.up * 0.7f; // below breastwork top (1.0 m)
+                if (Physics.Raycast(chest, fwd, cc.radius + 0.45f, mask, QueryTriggerInteraction.Ignore))
+                    want = Mathf.InverseLerp(6f, 40f, Pitch) * MaxPeek;
+            }
+
+            var allowed = want;
+            if (want > 0f)
+            {
+                var head = transform.position + Vector3.up * (height - EyeFromTop);
+                if (Physics.SphereCast(head, 0.16f, fwd, out var hit, want + 0.05f, mask, QueryTriggerInteraction.Ignore))
+                    allowed = Mathf.Max(0f, hit.distance - 0.05f);
+            }
+
+            peek = Mathf.Min(Mathf.MoveTowards(peek, allowed, dt * 2.2f), allowed);
         }
 
         void ApplyRotation()
@@ -153,7 +187,7 @@ namespace MarrowRoad
             var eye = height - EyeFromTop;
             var bobAmp = Mathf.Clamp01(planarVel.magnitude / sprintSpeed) * 0.045f;
             var bob = new Vector3(Mathf.Cos(bobPhase * 0.5f) * bobAmp * 0.6f, Mathf.Abs(Mathf.Sin(bobPhase * 0.5f)) * bobAmp, 0);
-            Head.localPosition = new Vector3(0, eye, 0) + bob;
+            Head.localPosition = new Vector3(0, eye - peek * 0.3f, peek) + bob;
             Head.localRotation = Quaternion.Euler(Pitch, 0, 0);
             leanPivot.localPosition = new Vector3(lean * 0.32f, -Mathf.Abs(lean) * 0.05f, 0);
             leanPivot.localRotation = Quaternion.Euler(0, 0, -lean * 11f);

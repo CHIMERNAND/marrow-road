@@ -11,7 +11,7 @@ namespace MarrowRoad
     {
         static readonly float[] TickRanges = { 50f, 75f, 100f };
         SiegeDirector d;
-        GUIStyle big, mid, small, label, center;
+        GUIStyle big, mid, small, label, center, button;
         Texture2D white;
         int lastWave;
         float waveBanner;
@@ -52,6 +52,7 @@ namespace MarrowRoad
             label = new GUIStyle(GUI.skin.label) { fontSize = 22, alignment = TextAnchor.MiddleLeft };
             label.normal.textColor = new Color(0.92f, 0.88f, 0.8f);
             center = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter };
+            button = new GUIStyle(GUI.skin.button) { fontSize = 24 };
         }
 
         void OnGUI()
@@ -72,7 +73,7 @@ namespace MarrowRoad
                     GUI.Label(new Rect(0, h * 0.28f, w, 90), "MARROW ROAD", big);
                     GUI.Label(new Rect(0, h * 0.28f + 80, w, 40), "Hold the Deep until dawn. Five waves.", mid);
                     GUI.Label(new Rect(0, h * 0.55f, w, 160),
-                        "WASD move   Shift sprint   Ctrl crouch   Q/E lean\nLeft click fire   Right click aim   F build turret at a socket (150 gold)\nEsc pause and options", small);
+                        "WASD move   Shift sprint   Ctrl crouch   Q/E lean   Walk up to a crenel and look down to lean over\nLeft click fire   Right click aim   F build turret at a socket (150 gold)\nEsc pause and options", small);
                     GUI.Label(new Rect(0, h * 0.75f, w, 40), "Click or press Enter to begin", mid);
                     return;
                 case SiegePhase.Victory:
@@ -159,16 +160,18 @@ namespace MarrowRoad
         void Pause(float w, float h)
         {
             Fill(new Rect(0, 0, w, h), new Color(0, 0, 0, 0.6f));
-            var r = new Rect(w / 2 - 260, h / 2 - 220, 520, 440);
+            var r = new Rect(w / 2 - 260, h / 2 - 250, 520, 500);
             GUI.Label(new Rect(r.x, r.y, r.width, 60), "Paused", mid);
             GUI.Label(new Rect(r.x, r.y + 80, 200, 30), $"Sensitivity {GameSettings.MouseSensitivity:0.00}", label);
             GameSettings.MouseSensitivity = GUI.HorizontalSlider(new Rect(r.x + 220, r.y + 92, 300, 20), GameSettings.MouseSensitivity, 0.02f, 0.5f);
             GUI.Label(new Rect(r.x, r.y + 130, 200, 30), $"Field of view {GameSettings.FieldOfView:0}", label);
             GameSettings.FieldOfView = GUI.HorizontalSlider(new Rect(r.x + 220, r.y + 142, 300, 20), GameSettings.FieldOfView, 60f, 100f);
-            GameSettings.InvertY = GUI.Toggle(new Rect(r.x, r.y + 180, 300, 30), GameSettings.InvertY, " Invert mouse Y");
-            if (GUI.Button(new Rect(r.x + 60, r.y + 240, 400, 44), "Resume")) d.SetPaused(false);
-            if (GUI.Button(new Rect(r.x + 60, r.y + 296, 400, 44), "Restart")) d.Restart();
-            if (GUI.Button(new Rect(r.x + 60, r.y + 352, 400, 44), "Quit")) Application.Quit();
+            GUI.Label(new Rect(r.x, r.y + 180, 200, 30), $"Brightness {GameSettings.Brightness:+0.0;-0.0;0.0}", label);
+            GameSettings.Brightness = GUI.HorizontalSlider(new Rect(r.x + 220, r.y + 192, 300, 20), GameSettings.Brightness, -1.5f, 2.5f);
+            GameSettings.InvertY = GUI.Toggle(new Rect(r.x, r.y + 230, 300, 30), GameSettings.InvertY, " Invert mouse Y", label);
+            if (GUI.Button(new Rect(r.x + 60, r.y + 290, 400, 48), "Resume", button)) d.SetPaused(false);
+            if (GUI.Button(new Rect(r.x + 60, r.y + 350, 400, 48), "Restart", button)) d.Restart();
+            if (GUI.Button(new Rect(r.x + 60, r.y + 410, 400, 48), "Quit", button)) Application.Quit();
         }
 
         void Results(float w, float h, SiegeState s)
@@ -183,8 +186,8 @@ namespace MarrowRoad
                 $"Kills  {s.Kills}  (you {s.PlayerKills}, turrets {s.TurretKills})\n" +
                 $"Headshots  {s.Headshots}   Accuracy  {s.Accuracy01 * 100f:0}%\n" +
                 $"Time  {mins}:{secs:00}", mid);
-            if (GUI.Button(new Rect(w / 2 - 200, h * 0.72f, 400, 50), "Play again")) d.Restart();
-            if (GUI.Button(new Rect(w / 2 - 200, h * 0.72f + 62, 400, 50), "Quit")) Application.Quit();
+            if (GUI.Button(new Rect(w / 2 - 200, h * 0.72f, 400, 50), "Play again", button)) d.Restart();
+            if (GUI.Button(new Rect(w / 2 - 200, h * 0.72f + 62, 400, 50), "Quit", button)) Application.Quit();
         }
 
         void Fill(Rect r, Color c)

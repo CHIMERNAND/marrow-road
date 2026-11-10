@@ -26,7 +26,9 @@ namespace MarrowRoad
         bool aimHead;
         float botYaw, botPitch;
         PlayerIntent pending;
-        int botShots, botKillsAtStart;
+        int botShots, botKillsAtStart, losRetargets, blockedHolds;
+        float maxPeek, losTimer;
+        readonly List<string> luma = new List<string>();
         float started;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
@@ -86,6 +88,17 @@ namespace MarrowRoad
             yield return Wait(1.0f);
             yield return Shot("01_spawn_view");
 
+            // Exposure bracket of the same view so the night grade can be tuned from one run.
+            var userBright = GameSettings.Brightness;
+            GameSettings.Brightness = -1f;
+            yield return Wait(0.3f);
+            yield return Shot("01b_spawn_ev-1");
+            GameSettings.Brightness = 1f;
+            yield return Wait(0.3f);
+            yield return Shot("01c_spawn_ev+1");
+            GameSettings.Brightness = userBright;
+            yield return Wait(0.2f);
+
             p.Teleport(new Vector3(92f, 0.05f, -18f), 0f, -14f);
             yield return Wait(0.6f);
             yield return Shot("02_scale_test");
@@ -104,7 +117,8 @@ namespace MarrowRoad
             yield return null;
             var built = d.TryBuildAtNearestSocket();
             notes.Add("turret_built=" + built);
-            p.Teleport(new Vector3(124f, 20.05f, 3f), 160f, 8f);
+            var post = PostAgainstParapet(new Vector3(133.2f, 20.05f, -1.5f), 180f);
+            p.Teleport(post, 180f, 8f);
 
             d.SkipPrep();
             botKillsAtStart = d.State.Kills;
@@ -150,7 +164,7 @@ namespace MarrowRoad
 
             // Finish the siege fast with the bot and turret to verify the full loop (waves, prep, end screen).
             botFiring = true;
-            p.Teleport(new Vector3(124f, 20.05f, 3f), 160f, 8f);
+            p.Teleport(post, 180f, 8f);
             Time.timeScale = 4f;
             t0 = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - t0 < 150f && (d.State.Phase == SiegePhase.Wave || d.State.Phase == SiegePhase.Preparing))
@@ -170,9 +184,18 @@ namespace MarrowRoad
         void Update()
         {
             if (measuring) frameMs.Add(Time.unscaledDeltaTime * 1000f);
-            if (d == null || !d.Ready || !botFiring) return;
+            if (d == null || !d.Ready) return;
+            maxPeek = Mathf.Max(maxPeek, d.Player.Peek);
+            if (!botFiring) return;
             var p = d.Player;
-            if (botTarget == null || !botTarget.Alive) botTarget = Nearest(p.transform.position);
+            losTimer -= Time.unscaledDeltaTime;
+            if (botTarget == null || !botTarget.Alive || (losTimer <= 0f && !Visible(botTarget)))
+            {
+                if (botTarget != null && botTarget.Alive) losRetargets++;
+                botTarget = Nearest(p.transform.position);
+                losTimer = 0.3f;
+            }
+
             if (botTarget == null) return;
             AimAt(botTarget, false);
         }
@@ -199,6 +222,14 @@ namespace MarrowRoad
             botAds = true;
             if (botFiring && onTarget && d.Weapon.Loaded && d.Weapon.Ads01 > 0.9f)
             {
+                // Never loose a bolt into the stonework right in front of the face.
+                var cam = p.Cam.transform;
+                if (Physics.Raycast(cam.position, cam.forward, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore))
+                {
+                    blockedHolds++;
+                    return;
+                }
+
                 pending.Fire = true;
                 botShots++;
             }
@@ -212,13 +243,85 @@ namespace MarrowRoad
             return i;
         }
 
+        /// <summary>Clear line from the eye (as it would be when leaning over) to the zombie's chest.</summary>
+        bool Visible(Zombie z)
+        {
+            var p = d.Player;
+            var eye = p.Cam.transform.position;
+            if (SeesFrom(eye, z)) return true;
+            // Also count targets that would be visible once leaning out through the crenel.
+            var fwd = Quaternion.Euler(0, p.Yaw, 0) * Vector3.forward;
+            var reach = FirstPersonController.MaxPeek - p.Peek;
+            if (reach < 0.2f || Physics.SphereCast(eye, 0.16f, fwd, out _, reach, ~(1 << 2), QueryTriggerInteraction.Ignore)) return false;
+            return SeesFrom(eye + fwd * reach + Vector3.down * 0.35f, z);
+        }
+
+        static bool SeesFrom(Vector3 cam, Zombie z)
+        {
+            var to = z.ChestPosition - cam;
+            var hits = Physics.RaycastAll(cam, to.normalized, to.magnitude + 0.5f, ~(1 << 2), QueryTriggerInteraction.Collide);
+            var nearest = float.MaxValue;
+            Collider first = null;
+            foreach (var h in hits)
+            {
+                if (h.distance < nearest)
+                {
+                    nearest = h.distance;
+                    first = h.collider;
+                }
+            }
+
+            return first == null || first.GetComponentInParent<Zombie>() == z;
+        }
+
+        /// <summary>
+        /// Finds a crenel (gap between merlons) near <paramref name="approx"/> and returns feet
+        /// position pressed against the breastwork, facing <paramref name="yaw"/>.
+        /// </summary>
+        Vector3 PostAgainstParapet(Vector3 approx, float yaw)
+        {
+            var fwd = Quaternion.Euler(0, yaw, 0) * Vector3.forward;
+            var right = Quaternion.Euler(0, yaw, 0) * Vector3.right;
+            const int mask = ~(1 << 2);
+            float bestCenter = 0f, bestLen = 0f, bestScore = float.MaxValue;
+            float runStart = float.NaN;
+            for (var o = -1.6f; o <= 1.6f + 0.001f; o += 0.05f)
+            {
+                var head = approx + right * o + Vector3.up * 1.7f;
+                var free = !Physics.Raycast(head, fwd, 3f, mask, QueryTriggerInteraction.Ignore);
+                if (free && float.IsNaN(runStart)) runStart = o;
+                var end = !free || o >= 1.6f - 0.001f;
+                if (end && !float.IsNaN(runStart))
+                {
+                    var stop = free ? o : o - 0.05f;
+                    var len = stop - runStart;
+                    var c = (runStart + stop) / 2f;
+                    var score = Mathf.Abs(c) - len * 2f;
+                    if (len > 0.5f && score < bestScore)
+                    {
+                        bestScore = score;
+                        bestCenter = c;
+                        bestLen = len;
+                    }
+
+                    runStart = float.NaN;
+                }
+            }
+
+            var spot = approx + right * bestCenter;
+            if (Physics.Raycast(spot + Vector3.up * 0.6f, fwd, out var hit, 4f, mask, QueryTriggerInteraction.Ignore))
+                spot = new Vector3(hit.point.x, approx.y, hit.point.z) - fwd * 0.4f;
+            notes.Add($"post=({spot.x:0.0},{spot.z:0.0}) crenel={bestLen:0.00}m");
+            return spot;
+        }
+
         Zombie Nearest(Vector3 pos)
         {
             Zombie best = null;
             var bd = float.MaxValue;
             foreach (var z in d.Spawner.Alive)
             {
-                if (!z.Alive) continue;
+                if (!z.Alive || !Visible(z)) continue;
                 var dd = (z.transform.position - pos).sqrMagnitude;
                 if (dd < bd && dd < 120f * 120f)
                 {
@@ -254,10 +357,26 @@ namespace MarrowRoad
         {
             yield return new WaitForEndOfFrame();
             var tex = ScreenCapture.CaptureScreenshotAsTexture();
+            luma.Add($"{name}={MeanLuma(tex):0.0}");
             var path = Path.Combine(dir, name + ".jpg");
             File.WriteAllBytes(path, tex.EncodeToJPG(88));
             Destroy(tex);
             shots.Add(name);
+        }
+
+        static float MeanLuma(Texture2D tex)
+        {
+            var px = tex.GetPixels32();
+            double sum = 0;
+            var n = 0;
+            for (var i = 0; i < px.Length; i += 97)
+            {
+                var c = px[i];
+                sum += 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+                n++;
+            }
+
+            return n == 0 ? 0f : (float)(sum / n);
         }
 
         void WriteReport()
@@ -295,6 +414,10 @@ namespace MarrowRoad
             KV(sb, "headshots", s.Headshots);
             KV(sb, "shots_fired", s.ShotsFired);
             KV(sb, "shots_hit", s.ShotsHit);
+            KV(sb, "bot_shots", botShots);
+            KV(sb, "bot_los_retargets", losRetargets);
+            KV(sb, "bot_blocked_holds", blockedHolds);
+            KV(sb, "max_peek_m", maxPeek);
             KV(sb, "spawn_failures", d.SpawnFailures);
             KV(sb, "alive_at_end", d.Spawner.Alive.Count);
             KV(sb, "error_count", errorCount);
@@ -302,6 +425,7 @@ namespace MarrowRoad
             KV(sb, "runtime_s", Time.realtimeSinceStartup - started);
             sb.Append("  \"notes\": [").Append(Join(notes)).Append("],\n");
             sb.Append("  \"shots\": [").Append(Join(shots)).Append("],\n");
+            sb.Append("  \"mean_luma_0_255\": [").Append(Join(luma)).Append("],\n");
             sb.Append("  \"errors\": [").Append(Join(errors)).Append("]\n}\n");
             File.WriteAllText(Path.Combine(dir, "report.json"), sb.ToString());
         }

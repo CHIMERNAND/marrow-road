@@ -11,7 +11,7 @@ namespace MarrowRoad
     public sealed class Zombie : MonoBehaviour, IDamageable
     {
         public const float MaxHp = 100f;
-        public const float GateDps = 3f;
+        public const float GateDps = 2f;
 
         enum Mode { Walking, Attacking, Dead }
 
@@ -169,6 +169,7 @@ namespace MarrowRoad
 
         void Die(in HitInfo hit)
         {
+            director?.ReleaseGateSlot(this);
             mode = Mode.Dead;
             deadTime = 0f;
             agent.enabled = false;
@@ -228,7 +229,7 @@ namespace MarrowRoad
                 face.y = 0;
                 if (face.sqrMagnitude > 0.01f)
                     transform.rotation = Quaternion.RotateTowards(transform.rotation, Quaternion.LookRotation(face), 180f * dt);
-                if (stagger <= 0f) director?.DamageGate(GateDps * dt);
+                if (stagger <= 0f && director != null && director.TryClaimGateSlot(this)) director.DamageGate(GateDps * dt);
             }
         }
 
@@ -246,6 +247,7 @@ namespace MarrowRoad
         public void Despawn()
         {
             if (agent.enabled) agent.enabled = false;
+            director?.ReleaseGateSlot(this);
             mode = Mode.Dead;
             ClearStuckBolts();
             gameObject.SetActive(false);

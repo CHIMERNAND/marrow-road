@@ -72,7 +72,7 @@ rails=[ # low inner rail so the player can't walk off the back of the wall
 layout=dict(
   wallTop=WALL_TOP,
   boxes=boxes, parapets=parapets, rails=rails,
-  playerSpawn=dict(p=[112.95,WALL_TOP+0.05,1.75],yaw=172.0),
+  playerSpawn=dict(p=[112.95,WALL_TOP+0.05,1.38],yaw=172.0),
   gateCenter=[140,13.5,0.0],
   gateTarget=[140,10.0,-2.0],
   spawnMin=[100,0,-175], spawnMax=[190,0,-135],

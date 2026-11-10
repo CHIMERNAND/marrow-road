@@ -17,6 +17,13 @@ namespace MarrowRoad
             set => PlayerPrefs.SetFloat("mr.fov", Mathf.Clamp(value, 60f, 100f));
         }
 
+        /// <summary>Exposure offset in EV stops on top of the authored night grade.</summary>
+        public static float Brightness
+        {
+            get => PlayerPrefs.GetFloat("mr.bright", 0f);
+            set => PlayerPrefs.SetFloat("mr.bright", Mathf.Clamp(value, -1.5f, 2.5f));
+        }
+
         public static bool InvertY
         {
             get => PlayerPrefs.GetInt("mr.invy", 0) == 1;

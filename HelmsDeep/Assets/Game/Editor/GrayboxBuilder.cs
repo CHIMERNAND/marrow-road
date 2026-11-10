@@ -228,7 +228,7 @@ namespace MarrowRoad.EditorTools
             var moon = new GameObject("Moon").AddComponent<Light>();
             moon.type = LightType.Directional;
             moon.color = new Color(0.62f, 0.7f, 0.95f);
-            moon.intensity = 0.55f;
+            moon.intensity = 1.0f;
             moon.shadows = LightShadows.Soft;
             moon.shadowStrength = 0.85f;
             moon.transform.rotation = Quaternion.Euler(32f, 22f, 0f);
@@ -240,17 +240,17 @@ namespace MarrowRoad.EditorTools
             sky.SetFloat("_AtmosphereThickness", 0.55f);
             sky.SetColor("_SkyTint", new Color(0.25f, 0.3f, 0.45f));
             sky.SetColor("_GroundColor", new Color(0.04f, 0.045f, 0.05f));
-            sky.SetFloat("_Exposure", 0.18f);
+            sky.SetFloat("_Exposure", 0.26f);
             AssetDatabase.CreateAsset(sky, Gen + "/Materials/NightSky.mat");
             RenderSettings.skybox = sky;
             RenderSettings.ambientMode = AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.11f, 0.13f, 0.2f);
-            RenderSettings.ambientEquatorColor = new Color(0.06f, 0.065f, 0.085f);
-            RenderSettings.ambientGroundColor = new Color(0.025f, 0.025f, 0.03f);
+            RenderSettings.ambientSkyColor = new Color(0.2f, 0.235f, 0.36f);
+            RenderSettings.ambientEquatorColor = new Color(0.11f, 0.12f, 0.155f);
+            RenderSettings.ambientGroundColor = new Color(0.045f, 0.045f, 0.055f);
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
             RenderSettings.fogDensity = 0.0055f;
-            RenderSettings.fogColor = new Color(0.055f, 0.065f, 0.085f);
+            RenderSettings.fogColor = new Color(0.08f, 0.095f, 0.125f);
             RenderSettings.defaultReflectionMode = DefaultReflectionMode.Custom;
             RenderSettings.reflectionIntensity = 0.3f;
 
@@ -295,7 +295,7 @@ namespace MarrowRoad.EditorTools
             vig.intensity.Override(0.3f);
             vig.smoothness.Override(0.45f);
             var ca = profile.Add<ColorAdjustments>(true);
-            ca.postExposure.Override(0.55f);
+            ca.postExposure.Override(1.5f);
             ca.contrast.Override(12f);
             ca.saturation.Override(-12f);
             var grain = profile.Add<FilmGrain>(true);
@@ -331,6 +331,7 @@ namespace MarrowRoad.EditorTools
                 SetInt(so, "m_ShadowCascadeCount", 4);
                 SetInt(so, "m_MainLightShadowmapResolution", 4096);
                 SetInt(so, "m_AdditionalLightsPerObjectLimit", 8);
+                SetInt(so, "m_AdditionalLightsShadowmapResolution", 4096);
                 SetBool(so, "m_AdditionalLightShadowsSupported", true);
                 SetBool(so, "m_SoftShadowsSupported", true);
                 SetBool(so, "m_SupportsHDR", true);

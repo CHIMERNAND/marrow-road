@@ -25,7 +25,7 @@ namespace MarrowRoad
     public sealed class SiegeState
     {
         public const int StartGold = 100;
-        public const float MaxGateHp = 1500f;
+        public const float MaxGateHp = 2500f;
 
         public SiegePhase Phase { get; private set; } = SiegePhase.Title;
         public int Wave { get; private set; }

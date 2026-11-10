@@ -70,6 +70,7 @@ namespace MarrowRoad
             NavMeshBuildMs = (float)sw.Elapsed.TotalMilliseconds;
             Debug.Log($"[MarrowRoad] NavMesh built in {NavMeshBuildMs:0} ms");
 
+            gameObject.AddComponent<ExposureControl>();
             Spawner = new ZombieSpawner(new GameObject("Zombies").transform, MaterialLibrary.Instance, 60);
             Sockets.AddRange(FindObjectsByType<TurretSocket>(FindObjectsSortMode.None));
 
@@ -207,6 +208,21 @@ namespace MarrowRoad
         }
 
         public void DamageGate(float amount) => State.DamageGate(amount);
+
+        /// <summary>Only this many zombies can beat on the gate leaves at once; the rest crowd behind.</summary>
+        public const int GateSlots = 10;
+        readonly HashSet<Zombie> gateAttackers = new HashSet<Zombie>();
+
+        public bool TryClaimGateSlot(Zombie z)
+        {
+            if (gateAttackers.Contains(z)) return true;
+            gateAttackers.RemoveWhere(a => a == null || !a.Alive);
+            if (gateAttackers.Count >= GateSlots) return false;
+            gateAttackers.Add(z);
+            return true;
+        }
+
+        public void ReleaseGateSlot(Zombie z) => gateAttackers.Remove(z);
 
         public void OnZombieKilled(Zombie z, DamageSource source, bool headshot)
         {
