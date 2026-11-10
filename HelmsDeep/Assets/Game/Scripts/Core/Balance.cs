@@ -143,6 +143,8 @@ namespace MarrowRoad
     public sealed class WaveDef
     {
         public float spawnInterval = 1f;
+        /// <summary>Multiplier on every enemy's HP in this wave (late waves get tougher dead).</summary>
+        public float hpMul = 1f;
         public WaveGroup[] groups = Array.Empty<WaveGroup>();
 
         public int Total

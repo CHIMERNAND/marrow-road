@@ -51,7 +51,8 @@ namespace MarrowRoad
         readonly List<float> frameMs = new List<float>();
         readonly List<string> notes = new List<string>();
         readonly List<string> planLog = new List<string>();
-        readonly List<(float ms, int wave, float t)> spikes = new List<(float, int, float)>();
+        readonly List<(float ms, int wave, float t, string ctx)> spikes = new List<(float, int, float, string)>();
+        int lastGc0, lastBoltsCreated, lastAlive;
         readonly Dictionary<int, (double sum, int n, int spikes)> waveFrames = new Dictionary<int, (double, int, int)>();
         int errorCount, warningCount, spikeCount, allFrames;
         bool measuring, botFiring, botAds, busy;
@@ -174,16 +175,18 @@ namespace MarrowRoad
             Time.timeScale = 1f;
             var t0 = Time.realtimeSinceStartup;
             var approach = false;
+            var approachAt = 0f;
             var combat = false;
             while (d.State.Phase == SiegePhase.Wave && d.State.Wave == 1 && Time.realtimeSinceStartup - t0 < 240f)
             {
                 if (!approach && Closest(p.transform.position) < 140f)
                 {
                     approach = true;
+                    approachAt = Time.realtimeSinceStartup;
                     yield return Shot("06_horde_approach");
                 }
 
-                if (!combat && approach && Time.realtimeSinceStartup - t0 > 40f && d.Weapon.Ads01 > 0.95f)
+                if (!combat && approach && Time.realtimeSinceStartup - approachAt > 12f && (d.Weapon.Ads01 > 0.6f || Time.realtimeSinceStartup - approachAt > 25f))
                 {
                     combat = true;
                     yield return Shot("07_combat");
@@ -389,16 +392,23 @@ namespace MarrowRoad
                 waveFrames.TryGetValue(wv, out var acc);
                 var spike = ms > SpikeMs;
                 waveFrames[wv] = (acc.sum + ms, acc.n + 1, acc.spikes + (spike ? 1 : 0));
+                var gc0 = System.GC.CollectionCount(0);
+                var alive = d.Spawner.ActiveCount;
                 if (spike)
                 {
                     spikeCount++;
-                    spikes.Add((ms, wv, d.State.ElapsedSeconds));
+                    var ctx = $"alive={alive}({alive - lastAlive:+0;-0;0}) gc={gc0 - lastGc0} newBolts={Bolt.Created - lastBoltsCreated} ts={Time.timeScale:0.##}";
+                    spikes.Add((ms, wv, d.State.ElapsedSeconds, ctx));
                     if (spikes.Count > 64)
                     {
                         spikes.Sort((x, y) => y.ms.CompareTo(x.ms));
                         spikes.RemoveRange(32, spikes.Count - 32);
                     }
                 }
+
+                lastGc0 = gc0;
+                lastAlive = alive;
+                lastBoltsCreated = Bolt.Created;
             }
 
             maxPeek = Mathf.Max(maxPeek, d.Player.Peek);
@@ -610,6 +620,7 @@ namespace MarrowRoad
             var sb = new StringBuilder();
             sb.Append("{\n");
             KV(sb, "build", Application.version);
+            KV(sb, "balance_hash", d.BalanceHash);
             KV(sb, "unity", Application.unityVersion);
             KV(sb, "gpu", SystemInfo.graphicsDeviceName);
             KV(sb, "cpu", SystemInfo.processorType);
@@ -672,7 +683,7 @@ namespace MarrowRoad
             sb.Append("  \"plan_log\": [").Append(Join(planLog)).Append("],\n");
             spikes.Sort((x, y) => y.ms.CompareTo(x.ms));
             var top = new List<string>();
-            for (var i = 0; i < spikes.Count && i < 12; i++) top.Add($"{spikes[i].ms:0.0}ms w{spikes[i].wave} t={spikes[i].t:0.0}");
+            for (var i = 0; i < spikes.Count && i < 12; i++) top.Add($"{spikes[i].ms:0.0}ms w{spikes[i].wave} t={spikes[i].t:0.0} {spikes[i].ctx}");
             sb.Append("  \"top_spikes\": [").Append(Join(top)).Append("],\n");
             sb.Append("  \"waves\": [\n");
             for (var i = 0; i < d.History.Count; i++)

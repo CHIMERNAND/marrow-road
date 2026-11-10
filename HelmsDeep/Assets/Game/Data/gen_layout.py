@@ -83,7 +83,7 @@ layout=dict(
   playerSpawn=dict(p=[112.95,WALL_TOP+0.05,1.38],yaw=172.0),
   gateCenter=[140,13.5,0.0],
   gateTarget=[140,10.0,-2.0],
-  spawnMin=[100,0,-175], spawnMax=[190,0,-135],
+  spawnMin=[100,0,-140], spawnMax=[190,0,-108],
   sockets=[
     dict(name="Socket_Bastion1",p=[0,WALL_TOP,-3.5],allow=["crossbow","ballista","catapult"]),
     dict(name="Socket_Bastion2",p=[70,WALL_TOP,-3.5],allow=["crossbow","ballista","catapult"]),

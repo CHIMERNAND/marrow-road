@@ -13,6 +13,8 @@ namespace MarrowRoad
         const int MaxStuck = 80;
         const int Mask = ~(1 << 2);
         static readonly Queue<(Bolt bolt, int serial)> Stuck = new Queue<(Bolt, int)>();
+        /// <summary>Bolts built at runtime because the pool ran dry (verification spike context).</summary>
+        public static int Created;
         static readonly Stack<Bolt> Pool = new Stack<Bolt>();
         static readonly RaycastHit[] HitBuf = new RaycastHit[16];
         static Transform poolRoot;
@@ -88,6 +90,7 @@ namespace MarrowRoad
                 if (b != null) return b;
             }
 
+            Created++;
             var lib = MaterialLibrary.Instance;
             var go = new GameObject("Bolt");
             go.layer = 2;

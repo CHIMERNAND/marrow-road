@@ -196,6 +196,7 @@ namespace MarrowRoad.EditorTools
             ob.size = new Vector3(8.4f, 7f, 1.2f);
             ob.carving = true;
             ob.carveOnlyStationary = false;
+            ob.enabled = false; // switched on by the director once the open-gate path has been checked
             gate.blocker = ob;
             return gate;
         }
