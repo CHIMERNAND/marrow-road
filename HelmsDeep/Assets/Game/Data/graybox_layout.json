@@ -1,0 +1,985 @@
+{
+ "wallTop": 20.0,
+ "boxes": [
+  {
+   "name": "ValleyFloor",
+   "kind": "ground",
+   "p": [
+    50.0,
+    -0.5,
+    -210.0
+   ],
+   "s": [
+    740,
+    1,
+    420
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": true,
+   "collide": true
+  },
+  {
+   "name": "DeepFloor",
+   "kind": "ground",
+   "p": [
+    50.0,
+    -0.5,
+    113.0
+   ],
+   "s": [
+    740,
+    1,
+    214
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "WestCliff",
+   "kind": "rock",
+   "p": [
+    -190.0,
+    31.0,
+    30.0
+   ],
+   "s": [
+    140,
+    62,
+    220
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "EastMountain",
+   "kind": "rock",
+   "p": [
+    252.5,
+    36.0,
+    50.0
+   ],
+   "s": [
+    155,
+    72,
+    220
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "EastMountainFoot",
+   "kind": "rock",
+   "p": [
+    207.5,
+    15.0,
+    -85.0
+   ],
+   "s": [
+    65,
+    30,
+    50
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "DeepingWall",
+   "kind": "wall",
+   "p": [
+    0.0,
+    10.0,
+    3.0
+   ],
+   "s": [
+    240,
+    20.0,
+    6
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "Bastion_0",
+   "kind": "tower",
+   "p": [
+    -70.0,
+    10.0,
+    -3.5
+   ],
+   "s": [
+    12,
+    20.0,
+    7
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "Bastion_1",
+   "kind": "tower",
+   "p": [
+    0.0,
+    10.0,
+    -3.5
+   ],
+   "s": [
+    12,
+    20.0,
+    7
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "Bastion_2",
+   "kind": "tower",
+   "p": [
+    70.0,
+    10.0,
+    -3.5
+   ],
+   "s": [
+    12,
+    20.0,
+    7
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CulvertRecess",
+   "kind": "dark",
+   "p": [
+    0.0,
+    1.6,
+    0.27499999999999997
+   ],
+   "s": [
+    8,
+    3.2,
+    0.65
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": false
+  },
+  {
+   "name": "HornburgShelf",
+   "kind": "rock",
+   "p": [
+    147.5,
+    5.0,
+    -8.0
+   ],
+   "s": [
+    55,
+    10,
+    16
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": true,
+   "collide": true
+  },
+  {
+   "name": "HornburgWall_W",
+   "kind": "wall",
+   "p": [
+    128.0,
+    10.0,
+    3.0
+   ],
+   "s": [
+    16,
+    20.0,
+    6
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "HornburgWall_E",
+   "kind": "wall",
+   "p": [
+    159.5,
+    10.0,
+    3.0
+   ],
+   "s": [
+    31,
+    20.0,
+    6
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "HornburgWall_Lintel",
+   "kind": "wall",
+   "p": [
+    140.0,
+    18.5,
+    3.0
+   ],
+   "s": [
+    8,
+    3.0,
+    6
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "HornburgWall_Sill",
+   "kind": "wall",
+   "p": [
+    140.0,
+    5.0,
+    3.0
+   ],
+   "s": [
+    8,
+    10,
+    6
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "GateTower_W",
+   "kind": "tower",
+   "p": [
+    132.0,
+    10.0,
+    2.0
+   ],
+   "s": [
+    8,
+    20.0,
+    12
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": true,
+   "collide": true
+  },
+  {
+   "name": "GateTower_E",
+   "kind": "tower",
+   "p": [
+    148.0,
+    10.0,
+    2.0
+   ],
+   "s": [
+    8,
+    20.0,
+    12
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": true,
+   "collide": true
+  },
+  {
+   "name": "HornburgCourt",
+   "kind": "rock",
+   "p": [
+    147.5,
+    5.0,
+    33.0
+   ],
+   "s": [
+    55,
+    10,
+    54
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "Keep",
+   "kind": "tower",
+   "p": [
+    161.0,
+    29.0,
+    33.0
+   ],
+   "s": [
+    22,
+    38,
+    22
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "KeepTower",
+   "kind": "tower",
+   "p": [
+    161.0,
+    53.0,
+    33.0
+   ],
+   "s": [
+    10,
+    10,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "Causeway",
+   "kind": "road",
+   "p": [
+    140,
+    4.4,
+    -46
+   ],
+   "s": [
+    8,
+    1.2,
+    60.8276253029822
+   ],
+   "r": [
+    -9.462322208025617,
+    0,
+    0
+   ],
+   "walkable": true,
+   "collide": true
+  },
+  {
+   "name": "CausewayRail_W",
+   "kind": "wall",
+   "p": [
+    135.6,
+    5.4,
+    -46
+   ],
+   "s": [
+    0.8,
+    1.4,
+    60.8276253029822
+   ],
+   "r": [
+    -9.462322208025617,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayRail_E",
+   "kind": "wall",
+   "p": [
+    144.4,
+    5.4,
+    -46
+   ],
+   "s": [
+    0.8,
+    1.4,
+    60.8276253029822
+   ],
+   "r": [
+    -9.462322208025617,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayFill_0",
+   "kind": "wall",
+   "p": [
+    140.0,
+    0.1,
+    -71.0
+   ],
+   "s": [
+    8,
+    0.2,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayFill_1",
+   "kind": "wall",
+   "p": [
+    140.0,
+    0.65,
+    -61.0
+   ],
+   "s": [
+    8,
+    1.3,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayFill_2",
+   "kind": "wall",
+   "p": [
+    140.0,
+    1.4833333333333334,
+    -51.0
+   ],
+   "s": [
+    8,
+    2.966666666666667,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayFill_3",
+   "kind": "wall",
+   "p": [
+    140.0,
+    2.3166666666666664,
+    -41.0
+   ],
+   "s": [
+    8,
+    4.633333333333333,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayFill_4",
+   "kind": "wall",
+   "p": [
+    140.0,
+    3.15,
+    -31.0
+   ],
+   "s": [
+    8,
+    6.3,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  },
+  {
+   "name": "CausewayFill_5",
+   "kind": "wall",
+   "p": [
+    140.0,
+    3.983333333333333,
+    -21.0
+   ],
+   "s": [
+    8,
+    7.966666666666666,
+    10
+   ],
+   "r": [
+    0,
+    0,
+    0
+   ],
+   "walkable": false,
+   "collide": true
+  }
+ ],
+ "parapets": [
+  {
+   "name": "Parapet_Deeping_0",
+   "x0": -120,
+   "x1": -76,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_Deeping_1",
+   "x0": -64,
+   "x1": -6,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_Deeping_2",
+   "x0": 6,
+   "x1": 64,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_Deeping_3",
+   "x0": 76,
+   "x1": 120,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_HornW",
+   "x0": 120,
+   "x1": 128,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_GateTowerW",
+   "x0": 128,
+   "x1": 136,
+   "z": -3.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_OverGate",
+   "x0": 136,
+   "x1": 144,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_GateTowerE",
+   "x0": 144,
+   "x1": 152,
+   "z": -3.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_HornE",
+   "x0": 152,
+   "x1": 175,
+   "z": 0.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_Bastion_0",
+   "x0": -76,
+   "x1": -64,
+   "z": -6.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_BastionW_0",
+   "x0": -75.5,
+   "x1": -75.5,
+   "z0": -7,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 1.0,
+   "axis": "z"
+  },
+  {
+   "name": "Parapet_BastionE_0",
+   "x0": -64.5,
+   "x1": -64.5,
+   "z0": -7,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 1.0,
+   "axis": "z"
+  },
+  {
+   "name": "Parapet_Bastion_1",
+   "x0": -6,
+   "x1": 6,
+   "z": -6.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_BastionW_1",
+   "x0": -5.5,
+   "x1": -5.5,
+   "z0": -7,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 1.0,
+   "axis": "z"
+  },
+  {
+   "name": "Parapet_BastionE_1",
+   "x0": 5.5,
+   "x1": 5.5,
+   "z0": -7,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 1.0,
+   "axis": "z"
+  },
+  {
+   "name": "Parapet_Bastion_2",
+   "x0": 64,
+   "x1": 76,
+   "z": -6.5,
+   "y": 20.0,
+   "thick": 1.0
+  },
+  {
+   "name": "Parapet_BastionW_2",
+   "x0": 64.5,
+   "x1": 64.5,
+   "z0": -7,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 1.0,
+   "axis": "z"
+  },
+  {
+   "name": "Parapet_BastionE_2",
+   "x0": 75.5,
+   "x1": 75.5,
+   "z0": -7,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 1.0,
+   "axis": "z"
+  }
+ ],
+ "rails": [
+  {
+   "name": "InnerRail_Deeping",
+   "x0": -120,
+   "x1": 175,
+   "z": 5.7,
+   "y": 20.0,
+   "thick": 0.6,
+   "height": 1.0
+  },
+  {
+   "name": "GateGallery_W",
+   "axis": "z",
+   "x0": 135.8,
+   "x1": 135.8,
+   "z0": -4,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 0.4,
+   "height": 0.55
+  },
+  {
+   "name": "GateGallery_E",
+   "axis": "z",
+   "x0": 144.2,
+   "x1": 144.2,
+   "z0": -4,
+   "z1": 0,
+   "y": 20.0,
+   "thick": 0.4,
+   "height": 0.55
+  }
+ ],
+ "playerSpawn": {
+  "p": [
+   112.95,
+   20.05,
+   1.38
+  ],
+  "yaw": 172.0
+ },
+ "gateCenter": [
+  140,
+  13.5,
+  0.0
+ ],
+ "gateTarget": [
+  140,
+  10.0,
+  -2.0
+ ],
+ "spawnMin": [
+  100,
+  0,
+  -175
+ ],
+ "spawnMax": [
+  190,
+  0,
+  -135
+ ],
+ "sockets": [
+  {
+   "name": "Socket_Bastion2",
+   "p": [
+    70,
+    20.0,
+    -3.5
+   ]
+  },
+  {
+   "name": "Socket_WallEast",
+   "p": [
+    110,
+    20.0,
+    2.6
+   ]
+  },
+  {
+   "name": "Socket_GateTowerW",
+   "p": [
+    131.5,
+    20.0,
+    -1.2
+   ]
+  }
+ ],
+ "dummies": [
+  {
+   "name": "ScaleDummy_WallBase",
+   "p": [
+    92,
+    0,
+    -3
+   ]
+  },
+  {
+   "name": "ScaleDummy_Causeway",
+   "p": [
+    140,
+    5,
+    -46
+   ]
+  },
+  {
+   "name": "ScaleDummy_WallWalk",
+   "p": [
+    92,
+    20.0,
+    3.0
+   ]
+  }
+ ],
+ "torchList": [
+  {
+   "p": [
+    -110,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    -90,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    -70,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    -50,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    -30,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    -10,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    10,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    30,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    50,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    70,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    90,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    110,
+    22.2,
+    1.2
+   ]
+  },
+  {
+   "p": [
+    133,
+    18,
+    -4.6
+   ]
+  },
+  {
+   "p": [
+    147,
+    18,
+    -4.6
+   ]
+  }
+ ]
+}
