@@ -295,7 +295,7 @@ namespace MarrowRoad.EditorTools
             vig.intensity.Override(0.3f);
             vig.smoothness.Override(0.45f);
             var ca = profile.Add<ColorAdjustments>(true);
-            ca.postExposure.Override(1.5f);
+            ca.postExposure.Override(1.9f);
             ca.contrast.Override(12f);
             ca.saturation.Override(-12f);
             var grain = profile.Add<FilmGrain>(true);

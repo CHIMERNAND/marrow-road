@@ -25,7 +25,7 @@ namespace MarrowRoad
         FirstPersonController body;
         Transform rig, stringT, loadedBolt, limbL, limbR, muzzle;
         Vector3 hipPos = new Vector3(0.17f, -0.17f, 0.36f);
-        Vector3 adsPos = new Vector3(0f, -0.044f, 0.30f);
+        Vector3 adsPos = new Vector3(0f, -0.044f, 0.43f); // rear notch ~18 cm from the eye
         float reloadT = -1f;
         float recoil;
         Vector2 sway;
@@ -62,7 +62,10 @@ namespace MarrowRoad
             // String: drawn back to the nut when loaded.
             stringT = Part(rig, new Vector3(0, 0.012f, -0.02f), new Vector3(0.6f, 0.006f, 0.006f), rope);
             // Rear sight blade and front post, used when aiming down sights.
-            Part(rig, new Vector3(0, 0.035f, -0.25f), new Vector3(0.03f, 0.03f, 0.004f), metal);
+            // Open notch: two thin blades with a gap, tops level with the front post, so the sight
+            // frames the target instead of covering it when the eye is behind it.
+            Part(rig, new Vector3(-0.009f, 0.032f, -0.25f), new Vector3(0.01f, 0.022f, 0.004f), metal);
+            Part(rig, new Vector3(0.009f, 0.032f, -0.25f), new Vector3(0.01f, 0.022f, 0.004f), metal);
             Part(rig, new Vector3(0, 0.032f, 0.17f), new Vector3(0.004f, 0.022f, 0.004f), metal);
             // Loaded bolt in the groove.
             loadedBolt = new GameObject("LoadedBolt").transform;
