@@ -118,7 +118,8 @@ namespace MarrowRoad
             Spawner = new ZombieSpawner(new GameObject("Enemies").transform, MaterialLibrary.Instance, Balance);
             Spawner.Prewarm(Balance.maxAlive);
             Bolt.Prewarm(64);
-            Shader.WarmupAllShaders();
+            // Shader.WarmupAllShaders() hard-crashes the D3D12 player (seen on G15, Unity 6000.3).
+            // Pooled instances above already create their materials; PSOs compile on first draw.
             PrewarmMs = (float)sw.Elapsed.TotalMilliseconds;
             Debug.Log($"[MarrowRoad] Prewarm {PrewarmMs:0} ms ({Balance.TotalWaves} waves, {Balance.enemies.Length} enemy types)");
 
