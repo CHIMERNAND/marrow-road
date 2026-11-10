@@ -34,7 +34,9 @@ namespace MarrowRoad
         float height = StandHeight;
         float lean;
         float peek;
-        public const float MaxPeek = 1.25f;
+        // Body stands ~0.36 m off the stone and the breastwork is 1.0 m thick, so the head must travel
+        // ~1.6 m to sit just past the outer face and see the foot of the wall.
+        public const float MaxPeek = 1.6f;
         public float Peek => peek;
         float bobPhase;
         Vector3 planarVel;

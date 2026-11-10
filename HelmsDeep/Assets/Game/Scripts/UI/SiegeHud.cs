@@ -11,7 +11,7 @@ namespace MarrowRoad
     {
         static readonly float[] TickRanges = { 50f, 75f, 100f };
         SiegeDirector d;
-        GUIStyle big, mid, small, label, center, button;
+        GUIStyle big, mid, small, label, center, button, toggle;
         Texture2D white;
         int lastWave;
         float waveBanner;
@@ -53,6 +53,7 @@ namespace MarrowRoad
             label.normal.textColor = new Color(0.92f, 0.88f, 0.8f);
             center = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter };
             button = new GUIStyle(GUI.skin.button) { fontSize = 24 };
+            toggle = new GUIStyle(GUI.skin.toggle) { fontSize = 22 };
         }
 
         void OnGUI()
@@ -168,7 +169,7 @@ namespace MarrowRoad
             GameSettings.FieldOfView = GUI.HorizontalSlider(new Rect(r.x + 220, r.y + 142, 300, 20), GameSettings.FieldOfView, 60f, 100f);
             GUI.Label(new Rect(r.x, r.y + 180, 200, 30), $"Brightness {GameSettings.Brightness:+0.0;-0.0;0.0}", label);
             GameSettings.Brightness = GUI.HorizontalSlider(new Rect(r.x + 220, r.y + 192, 300, 20), GameSettings.Brightness, -1.5f, 2.5f);
-            GameSettings.InvertY = GUI.Toggle(new Rect(r.x, r.y + 230, 300, 30), GameSettings.InvertY, " Invert mouse Y", label);
+            GameSettings.InvertY = GUI.Toggle(new Rect(r.x, r.y + 230, 300, 30), GameSettings.InvertY, " Invert mouse Y", toggle);
             if (GUI.Button(new Rect(r.x + 60, r.y + 290, 400, 48), "Resume", button)) d.SetPaused(false);
             if (GUI.Button(new Rect(r.x + 60, r.y + 350, 400, 48), "Restart", button)) d.Restart();
             if (GUI.Button(new Rect(r.x + 60, r.y + 410, 400, 48), "Quit", button)) Application.Quit();
