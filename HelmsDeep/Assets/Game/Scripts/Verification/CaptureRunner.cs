@@ -47,7 +47,17 @@ namespace MarrowRoad
             started = Time.realtimeSinceStartup;
         }
 
+        bool reportWritten;
+
         void OnDestroy() => Application.logMessageReceived -= OnLog;
+
+        // If the window is closed early, still leave a (partial) report behind.
+        void OnApplicationQuit()
+        {
+            if (reportWritten || d == null) return;
+            notes.Add("aborted_early=True");
+            WriteReport();
+        }
 
         void OnLog(string msg, string stack, LogType type)
         {
@@ -381,6 +391,7 @@ namespace MarrowRoad
 
         void WriteReport()
         {
+            reportWritten = true;
             var sorted = new List<float>(frameMs);
             sorted.Sort();
             float Pct(float q) => sorted.Count == 0 ? 0 : sorted[Mathf.Clamp(Mathf.FloorToInt(q * (sorted.Count - 1)), 0, sorted.Count - 1)];
