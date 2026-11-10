@@ -41,7 +41,8 @@ namespace MarrowRoad
         public bool OnLadder => mode is Mode.Climbing or Mode.Vaulting;
         public bool OnWall => mode == Mode.OnWall;
         public bool Heavy => Kind is EnemyKind.Brute or EnemyKind.Ram;
-        public float Hp01 => Def == null || Def.hp <= 0 ? 0 : Mathf.Clamp01(hp / Def.hp);
+        public float MaxHp { get; private set; } = 1f;
+        public float Hp01 => MaxHp <= 0 ? 0 : Mathf.Clamp01(hp / MaxHp);
         public float ClimbS => climbS;
         public SiegeLadder Ladder => ladder;
 
@@ -256,7 +257,8 @@ namespace MarrowRoad
             baseSpeed = Random.Range(Def.speedMin, Def.speedMax);
             agent.speed = baseSpeed;
             agent.avoidancePriority = Kind == EnemyKind.Ram ? 10 : Kind == EnemyKind.Brute ? 25 : Random.Range(30, 70);
-            hp = Def.hp;
+            MaxHp = Def.hp * (owner != null ? owner.WaveHpMul : 1f);
+            hp = MaxHp;
             stagger = 0f;
             attackTimer = Def.ramInterval * Random.Range(0.4f, 1f);
             phase = Random.value * 10f;

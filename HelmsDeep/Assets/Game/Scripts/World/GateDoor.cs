@@ -22,7 +22,7 @@ namespace MarrowRoad
         {
             if (leafLeft != null) baseL = leafLeft.localPosition;
             if (leafRight != null) baseR = leafRight.localPosition;
-            if (blocker != null) blocker.enabled = true;
+            // The director enables the blocker after it has checked the open-gate path (SetBreached(false)).
         }
 
         public void SetBreached(bool value)

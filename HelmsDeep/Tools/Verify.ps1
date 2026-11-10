@@ -119,7 +119,9 @@ if ($r) {
     if ($prevReport -and $prevReport.wave_reached) {
         $drop = [int]$prevReport.wave_reached - [int]$r.wave_reached
         $sameLength = ([int]$prevReport.waves_total -eq [int]$r.waves_total)
-        if ($sameLength -and $drop -gt $t.max_wave_drop_vs_previous) { [void]$failures.Add("Bot reached wave $($r.wave_reached), previous run reached $($prevReport.wave_reached)") }
+        $sameBalance = ($prevReport.balance_hash -and $prevReport.balance_hash -eq $r.balance_hash)
+        if (-not $sameBalance) { [void]$warnings.Add("balance.json changed since the previous run; wave-reached comparison skipped") }
+        if ($sameLength -and $sameBalance -and $drop -gt $t.max_wave_drop_vs_previous) { [void]$failures.Add("Bot reached wave $($r.wave_reached), previous run reached $($prevReport.wave_reached)") }
         if ($prevReport.perf_avg_fps -gt 0) {
             $pct = 100 * ($prevReport.perf_avg_fps - $r.perf_avg_fps) / $prevReport.perf_avg_fps
             if ($pct -gt $t.max_fps_drop_pct_vs_previous) { [void]$failures.Add(("Average fps fell {0:0}% vs previous ({1:0} -> {2:0})" -f $pct, $prevReport.perf_avg_fps, $r.perf_avg_fps)) }

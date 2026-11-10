@@ -34,6 +34,18 @@ namespace MarrowRoad
 
         public static SiegeDirector Instance { get; private set; }
         public Balance Balance { get; private set; }
+        /// <summary>Short hash of balance.json so verification can tell a tuning change from a regression.</summary>
+        public string BalanceHash { get; private set; } = "none";
+
+        static string Fnv(string text)
+        {
+            unchecked
+            {
+                var h = 2166136261u;
+                foreach (var c in text) h = (h ^ c) * 16777619u;
+                return h.ToString("x8");
+            }
+        }
         public SiegeState State { get; private set; }
         public PlayerVitals Vitals { get; private set; }
         public ZombieSpawner Spawner { get; private set; }
@@ -59,6 +71,7 @@ namespace MarrowRoad
         public readonly List<SiegeLadder> Ladders = new List<SiegeLadder>();
         public readonly List<WaveRecord> History = new List<WaveRecord>();
         public WaveRecord CurrentWave { get; private set; }
+        public float WaveHpMul => Mathf.Max(0.1f, Balance?.Wave(State != null ? State.Wave : 0)?.hpMul ?? 1f);
 
         /// <summary>When set, this replaces local device input for the frame (capture bot).</summary>
         public System.Func<PlayerIntent> IntentOverride;
@@ -81,6 +94,7 @@ namespace MarrowRoad
             Instance = this;
             Layout = layoutJson != null ? GrayboxLayout.FromJson(layoutJson.text) : new GrayboxLayout();
             Balance = balanceJson != null ? Balance.FromJson(balanceJson.text) : new Balance();
+            BalanceHash = balanceJson != null ? Fnv(balanceJson.text.Replace("\r", "")) : "none";
             if (Balance.TotalWaves == 0) Debug.LogError("[MarrowRoad] balance.json has no waves.");
             State = new SiegeState(Balance);
             Vitals = new PlayerVitals(Balance.player);
@@ -117,7 +131,7 @@ namespace MarrowRoad
             gameObject.AddComponent<ExposureControl>();
             Spawner = new ZombieSpawner(new GameObject("Enemies").transform, MaterialLibrary.Instance, Balance);
             Spawner.Prewarm(Balance.maxAlive);
-            Bolt.Prewarm(64);
+            Bolt.Prewarm(140);
             // Shader.WarmupAllShaders() hard-crashes the D3D12 player (seen on G15, Unity 6000.3).
             // Pooled instances above already create their materials; PSOs compile on first draw.
             PrewarmMs = (float)sw.Elapsed.TotalMilliseconds;
@@ -145,16 +159,22 @@ namespace MarrowRoad
                 Debug.LogError("[MarrowRoad] Gate target is not on the NavMesh; zombies cannot reach the gate.");
             if (!NavMesh.SamplePosition(KeepTarget, out _, 4f, NavMesh.AllAreas))
                 Debug.LogError("[MarrowRoad] Keep target is not on the NavMesh; the fall-back cannot be assaulted.");
-            // The fall-back only works if the gate passage joins the causeway to the court (carving is not applied yet).
+            // The fall-back only works if the gate passage joins the causeway to the court. The gate's carving
+            // obstacle starts disabled so this checks the open-gate mesh.
             if (NavMesh.SamplePosition(GateTarget, out var gHit, 4f, NavMesh.AllAreas) && NavMesh.SamplePosition(KeepTarget, out var kHit, 4f, NavMesh.AllAreas))
             {
                 var path = new NavMeshPath();
                 NavMesh.CalculatePath(gHit.position, kHit.position, NavMesh.AllAreas, path);
                 if (path.status != NavMeshPathStatus.PathComplete)
-                    Debug.LogError("[MarrowRoad] No NavMesh path from the gate to the keep (" + path.status + "); a breach would strand the horde.");
+                {
+                    var end = path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : gHit.position;
+                    Debug.LogError("[MarrowRoad] No NavMesh path from the gate to the keep (" + path.status + ", stops at " + end.ToString("F1") + " of " + kHit.position.ToString("F1") + "); a breach would strand the horde.");
+                }
                 else
                     Debug.Log("[MarrowRoad] Gate-to-keep path OK (" + path.corners.Length + " corners)");
             }
+
+            if (gate != null) gate.SetBreached(false); // closes the passage (carving obstacle) now the open path is known
 
             foreach (var l in Ladders)
             {
