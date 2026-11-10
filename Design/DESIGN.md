@@ -56,7 +56,7 @@ Each milestone is one substantial batch of work, not a series of small tweaks. I
 - [x] Commit the Unity project with a correct Unity `.gitignore` (no `Library/`, `Builds/`, `Recordings/`) and Git LFS for art/audio. Keep `ffmpeg.exe` out of the repo.
 - [x] Archive the web prototype to the `archive/web-prototype` branch and rewrite the README.
 - [x] Add this design doc, `BACKLOG.md` and `ASSET_PIPELINE.md`.
-- [ ] Verify on the G15 that a fresh clone opens in Unity 6000.3.26f1 and builds.
+- [x] Verify on the G15 that a fresh clone opens in Unity 6000.3.26f1 and builds (M1Verify syncs and batch-builds from origin, 2026-11-10).
 - Done when: a fresh clone opens in Unity and builds.
 
 ### M1 — Graybox vertical slice: scale and feel
@@ -67,7 +67,7 @@ Each milestone is one substantial batch of work, not a series of small tweaks. I
 - Night lighting baseline: moon key light, torches, fog.
 - Done when: you can play 5 minutes, it holds 60 fps on the G15 at 1080p, the scale test passes, and you say "this feels like a wall".
 
-M1 status (branch `m1/graybox-slice`):
+M1 status: **done, signed off 2026-11-10** (PRs #2, #39):
 - [x] Layout source of truth: `Assets/Game/Data/gen_layout.py` -> `graybox_layout.json` (20 m Deeping Wall, 3 bastions, Hornburg gate on a 10 m shelf, 60 m causeway, keep, 1.8 m scale dummies).
 - [x] Editor builder `Marrow Road > Build Graybox Scene` generates `Siege_Graybox.unity` (metre-grid materials, crenellations, gate, sockets, torches, moon, fog, post volume).
 - [x] FP controller (walk 1.6 / sprint 4.2 m/s, crouch, Q/E lean, 1.7 m eye), crossbow (85 m/s ballistic bolt, 1.5 s spanning, ADS, drop ticks at 50/75/100 m, hit/headshot/kill markers).
@@ -75,9 +75,10 @@ M1 status (branch `m1/graybox-slice`):
 - [x] Wall crossbow turret on 3 sockets (150 gold, 90 m, ballistic lead).
 - [x] 5-wave loop with title, prep timer, gate HP, gold, pause/options (sensitivity, FOV, invert Y), results; authoritative `SiegeState` (co-op ready).
 - [x] Automated capture pass (`-m1capture`) + `Tools/M1Verify.ps1`.
-- [ ] First G15 run: build passes, report.json clean, 60 fps at 1080p.
-- [ ] Scale test reviewed from captures.
-- [ ] Drew plays 5 minutes and signs off.
+- [x] G15 run 3 (f23f8c5): build passes, 0 errors/warnings, 225 fps avg / p99 17 ms at 1080p on the RTX 3060 Laptop.
+- [x] Scale test reviewed from captures (1.8 m dummies vs 20 m wall); night grade tuned to luma ~35-60.
+- [x] Drew plays 5 minutes and signs off: "it felt much more like a wall."
+- Carry into M2: the capture bot alone loses wave 1 (16/17 hits, gate falls), so wave/gate balance moves to data and gets tuned; the p99 spike (17 ms, worst 173 ms) needs a look once horde counts rise.
 
 ### M2 — Core loop complete
 - All 4 turrets on sockets with upgrades, and all 5 enemy types.
