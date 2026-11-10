@@ -467,6 +467,7 @@ namespace MarrowRoad
             var headshot = hit.Headshot && hit.Source == DamageSource.Player;
             State.RegisterKill(hit.Source, hit.SourceId, headshot, z.Def.gold);
             if (hit.Source == DamageSource.Player) Weapon.MarkKill(headshot);
+            if (hit.Owner != null) hit.Owner.Kills++;
         }
 
         public void OnZombieDespawned(Zombie z) => Spawner.OnDespawned(z);

@@ -301,7 +301,15 @@ namespace MarrowRoad
         public void OnGateBreached()
         {
             if (!Alive) return;
-            if (mode is Mode.Walking or Mode.Attacking)
+            if (mode is Mode.ToLadder or Mode.WaitLadder)
+            {
+                // Not on the ladder yet: abandon it and join the push on the keep.
+                ladder?.Leave(this);
+                ladder = null;
+                agent.isStopped = false;
+                AssignGateOrKeep();
+            }
+            else if (mode is Mode.Walking or Mode.Attacking)
             {
                 director.ReleaseSlot(this);
                 agent.isStopped = false;
@@ -483,6 +491,15 @@ namespace MarrowRoad
 
         void TickWaitLadder()
         {
+            if (ladder == null || director.State.GateBreached)
+            {
+                ladder?.Leave(this);
+                ladder = null;
+                agent.isStopped = false;
+                AssignGateOrKeep();
+                return;
+            }
+
             ladder.RequestRaise();
             if (stagger > 0f || !ladder.TryEnter(this)) return;
             // Walk onto the foot of the ladder; from here on the ladder carries us (no NavMesh).
@@ -565,6 +582,20 @@ namespace MarrowRoad
                 if (repathTimer <= 0f)
                 {
                     repathTimer = 0.35f;
+                    SetDestination(playerPos);
+                }
+
+                agent.isStopped = stagger > 0f;
+                agent.speed = baseSpeed * 1.1f;
+                return;
+            }
+
+            // Gate already broken: the wall walk has no way down to the court, so hunt the defender along the wall.
+            if (director.State.GateBreached)
+            {
+                if (repathTimer <= 0f && Mathf.Abs(playerPos.y - transform.position.y) < 2.5f)
+                {
+                    repathTimer = 1f;
                     SetDestination(playerPos);
                 }
 

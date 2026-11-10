@@ -9,11 +9,12 @@ namespace MarrowRoad
         Vector3 velocity;
         float damage, radius, life;
         SiegeDirector director;
+        Turret owner;
         Transform dust;
         float dustT = -1f;
         bool landed;
 
-        public static void Launch(Vector3 from, Vector3 v0, float damage, float radius, SiegeDirector director)
+        public static void Launch(Vector3 from, Vector3 v0, float damage, float radius, SiegeDirector director, Turret owner = null)
         {
             var lib = MaterialLibrary.Instance;
             var go = GameObject.CreatePrimitive(PrimitiveType.Sphere);
@@ -28,6 +29,7 @@ namespace MarrowRoad
             b.damage = damage;
             b.radius = radius;
             b.director = director;
+            b.owner = owner;
         }
 
         void Update()
@@ -80,7 +82,8 @@ namespace MarrowRoad
                         Point = z.ChestPosition,
                         Direction = dir.sqrMagnitude > 0.01f ? dir.normalized : Vector3.forward,
                         Source = DamageSource.Turret,
-                        SourceId = "catapult"
+                        SourceId = "catapult",
+                        Owner = owner
                     });
                 }
             }

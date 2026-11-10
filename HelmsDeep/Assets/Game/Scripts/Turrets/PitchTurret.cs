@@ -127,7 +127,8 @@ namespace MarrowRoad
                     Point = z.ChestPosition,
                     Direction = Vector3.down,
                     Source = DamageSource.Turret,
-                    SourceId = "pitch"
+                    SourceId = "pitch",
+                    Owner = this
                 });
             }
         }

@@ -15,6 +15,8 @@ namespace MarrowRoad
         public bool ArmorPiercing;
         /// <summary>Who dealt it, for kill attribution: "player", "crossbow", "ballista", "catapult", "pitch", "ladder".</summary>
         public string SourceId;
+        /// <summary>The turret that dealt it (null for the player and the environment).</summary>
+        public Turret Owner;
     }
 
     public interface IDamageable

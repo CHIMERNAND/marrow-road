@@ -110,7 +110,7 @@ namespace MarrowRoad
             var T = Mathf.Clamp(dist / 40f, 2.5f, 5f);
             var aim = pendingTarget + pendingVel * T;
             var v0 = (aim - from) / T + Vector3.up * (0.5f * Ballistics.Gravity * T);
-            Boulder.Launch(from, v0, st.damage, st.splash, director);
+            Boulder.Launch(from, v0, st.damage, st.splash, director, this);
         }
 
         bool PickCluster(List<Zombie> alive, TurretTier st, out Vector3 point, out Vector3 vel)

@@ -167,7 +167,7 @@ namespace MarrowRoad
                 }
                 else
                 {
-                    GUI.Label(new Rect(0, y, w, 30), $"Socket: {sock.socketName}", center);
+                    GUI.Label(new Rect(0, y, w, 30), $"Socket: {sock.socketName.Replace("Socket_", "")}", center);
                     for (var i = 0; i < sock.allow.Length; i++)
                     {
                         var def = d.Balance.Turret(sock.allow[i]);

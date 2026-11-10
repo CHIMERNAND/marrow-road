@@ -58,6 +58,7 @@ namespace MarrowRoad
                 Shots++;
                 var spread = Random.insideUnitSphere * Spread;
                 var opt = BoltOptions;
+                opt.Owner = this;
                 Bolt.Fire(from, (dir + spread).normalized, st.projectileSpeed, st.damage, DamageSource.Turret, opt);
             }
         }

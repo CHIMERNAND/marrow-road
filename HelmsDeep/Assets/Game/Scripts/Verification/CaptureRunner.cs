@@ -349,7 +349,7 @@ namespace MarrowRoad
                 if (planStep < Plan.Length)
                 {
                     var (sockName, id) = Plan[planStep];
-                    var sock = d.Sockets.Find(x => x.socketName == sockName);
+                    var sock = d.Sockets.Find(x => x.socketName == sockName || x.socketName == "Socket_" + sockName);
                     if (sock == null)
                     {
                         planLog.Add($"missing socket {sockName}");

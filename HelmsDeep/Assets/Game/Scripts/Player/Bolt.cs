@@ -12,7 +12,7 @@ namespace MarrowRoad
     {
         const int MaxStuck = 80;
         const int Mask = ~(1 << 2);
-        static readonly Queue<Bolt> Stuck = new Queue<Bolt>();
+        static readonly Queue<(Bolt bolt, int serial)> Stuck = new Queue<(Bolt, int)>();
         static readonly Stack<Bolt> Pool = new Stack<Bolt>();
         static readonly RaycastHit[] HitBuf = new RaycastHit[16];
         static Transform poolRoot;
@@ -27,6 +27,9 @@ namespace MarrowRoad
         bool flying;
         TrailRenderer trail;
         System.Action<HitInfo, bool> onResolved;
+        Turret owner;
+        int stuckSerial;
+        bool pooled;
         readonly HashSet<IDamageable> pierced = new HashSet<IDamageable>();
 
         public struct Options
@@ -35,6 +38,7 @@ namespace MarrowRoad
             public bool ArmorPiercing;
             public string SourceId;
             public float Scale;
+            public Turret Owner;
         }
 
         public static Bolt Fire(Vector3 origin, Vector3 dir, float speed, float damage, DamageSource source, System.Action<HitInfo, bool> onResolved = null)
@@ -43,6 +47,7 @@ namespace MarrowRoad
         public static Bolt Fire(Vector3 origin, Vector3 dir, float speed, float damage, DamageSource source, Options opt, System.Action<HitInfo, bool> onResolved = null)
         {
             var b = Take();
+            b.pooled = false;
             var t = b.transform;
             t.SetParent(null, false);
             t.position = origin;
@@ -53,6 +58,7 @@ namespace MarrowRoad
             b.damage = damage;
             b.source = source;
             b.sourceId = opt.SourceId;
+            b.owner = opt.Owner;
             b.pierceLeft = opt.Pierce;
             b.armorPiercing = opt.ArmorPiercing;
             b.life = 0f;
@@ -101,6 +107,10 @@ namespace MarrowRoad
         /// <summary>Return to the pool (also used when a zombie carrying stuck bolts is recycled).</summary>
         public void Recycle()
         {
+            if (pooled) return;
+            pooled = true;
+            stuckSerial++; // invalidates any queued stuck entry for this bolt
+            owner = null;
             flying = false;
             onResolved = null;
             if (poolRoot == null) poolRoot = new GameObject("BoltPool").transform;
@@ -205,7 +215,8 @@ namespace MarrowRoad
                 Headshot = box.isHead,
                 Armored = box.armored,
                 ArmorPiercing = armorPiercing,
-                SourceId = sourceId
+                SourceId = sourceId,
+                Owner = owner
             };
             box.Owner.TakeHit(info);
             onResolved?.Invoke(info, true);
@@ -236,11 +247,11 @@ namespace MarrowRoad
                 cb(default, false);
             }
 
-            Stuck.Enqueue(this);
+            Stuck.Enqueue((this, stuckSerial));
             while (Stuck.Count > MaxStuck)
             {
-                var old = Stuck.Dequeue();
-                if (old != null && !old.flying && old.gameObject.activeSelf) old.Recycle();
+                var (old, serial) = Stuck.Dequeue();
+                if (old != null && old.stuckSerial == serial && !old.flying && !old.pooled) old.Recycle();
             }
         }
 
