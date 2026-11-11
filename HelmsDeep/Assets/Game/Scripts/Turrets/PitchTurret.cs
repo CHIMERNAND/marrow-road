@@ -10,7 +10,7 @@ namespace MarrowRoad
     public sealed class PitchTurret : Turret
     {
         // Gate apron in front of the leaves (world space), from the gate recess out onto the shelf.
-        static readonly Vector3 ZoneCenter = new Vector3(140f, 10f, -4.2f);
+        Vector3 ZoneCenter => director != null ? new Vector3(director.GateTarget.x, director.GateTarget.y, -4.2f) : new Vector3(140f, 6f, -4.2f);
         static readonly Vector3 ZoneHalf = new Vector3(4.6f, 2.5f, 4.4f);
 
         Transform tilt, stream, puddle;
@@ -55,7 +55,7 @@ namespace MarrowRoad
             return n;
         }
 
-        static bool InZone(Vector3 p, Vector3 half)
+        bool InZone(Vector3 p, Vector3 half)
         {
             var d = p - ZoneCenter;
             return Mathf.Abs(d.x) <= half.x && Mathf.Abs(d.y) <= half.y && Mathf.Abs(d.z) <= half.z;

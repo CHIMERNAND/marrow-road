@@ -46,6 +46,7 @@ namespace MarrowRoad
 
         string dir;
         SiegeDirector d;
+        float WT => (d != null ? d.Layout.wallTop : 15f) + 0.05f; // wall-walk standing height
         readonly List<string> errors = new List<string>();
         readonly List<string> shots = new List<string>();
         readonly List<float> frameMs = new List<float>();
@@ -151,19 +152,23 @@ namespace MarrowRoad
             yield return Wait(0.6f);
             yield return Shot("02_scale_test");
 
-            p.Teleport(new Vector3(60f, 20.05f, 3f), 90f, 3f);
+            p.Teleport(new Vector3(60f, WT, 3f), 90f, 3f);
             yield return Wait(0.6f);
             yield return Shot("03_wallwalk");
 
-            p.Teleport(new Vector3(125.15f, 20.05f, 1.75f), 164f, 16f);
+            p.Teleport(new Vector3(100f, WT, -1.4f), 262f, 35f);
+            yield return Wait(0.6f);
+            yield return Shot("03b_hoarding");
+
+            p.Teleport(new Vector3(125.15f, WT, 1.75f), 164f, 16f);
             yield return Wait(0.6f);
             yield return Shot("04_causeway");
 
-            post = PostAgainstParapet(new Vector3(133.2f, 20.05f, -1.5f), 180f);
+            post = PostAgainstParapet(new Vector3(133.2f, WT, -1.5f), 180f);
             p.Teleport(post, 180f, 8f);
             RunPlan();
             yield return Wait(0.5f);
-            p.Teleport(new Vector3(126.5f, 20.05f, 3.2f), 120f, 8f);
+            p.Teleport(new Vector3(126.5f, WT, 3.2f), 120f, 8f);
             yield return Wait(0.6f);
             yield return Shot("05_first_turret");
             p.Teleport(post, 180f, 8f);
@@ -223,7 +228,7 @@ namespace MarrowRoad
                     if (!defensesShot && d.State.Wave >= 5)
                     {
                         defensesShot = true;
-                        yield return VantageShot("09_defenses", new Vector3(122f, 20.05f, 3.6f), 115f, 10f);
+                        yield return VantageShot("09_defenses", new Vector3(122f, WT, 3.6f), 115f, 10f);
                     }
 
                     if (d.State.PrepRemaining > 1.5f) d.SkipPrep();
@@ -270,7 +275,7 @@ namespace MarrowRoad
             if (!breachShot && d.State.GateBreached && d.State.Phase == SiegePhase.Wave)
             {
                 breachShot = true;
-                yield return VantageShot("11_breach_court", new Vector3(146f, 20.05f, 5.0f), 150f, 32f);
+                yield return VantageShot("11_breach_court", new Vector3(146f, WT, 5.0f), 150f, 32f);
             }
 
             if (d.State.Phase == SiegePhase.Wave)

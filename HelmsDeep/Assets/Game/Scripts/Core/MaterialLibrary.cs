@@ -11,6 +11,7 @@ namespace MarrowRoad
         public Material ground, rock, wall, tower, road, dark;
         public Material wood, metal, rope, zombieSkin, zombieCloth, zombieWound, dummy, socket, gate;
         public Material flame, trail, ghost;
+        public Material stock, steel, leather, wool;
 
         public static MaterialLibrary Instance { get; private set; }
 
@@ -25,6 +26,7 @@ namespace MarrowRoad
                 case "tower": return tower;
                 case "road": return road;
                 case "dark": return dark;
+                case "wood": return wood;
                 default: return wall;
             }
         }

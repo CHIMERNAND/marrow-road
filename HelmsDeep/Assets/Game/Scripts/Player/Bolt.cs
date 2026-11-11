@@ -124,11 +124,26 @@ namespace MarrowRoad
 
         public static void BuildVisual(Transform parent, MaterialLibrary lib)
         {
-            var head = Prim(PrimitiveType.Cube, parent, new Vector3(0, 0, 0.01f), new Vector3(0.02f, 0.02f, 0.05f), lib != null ? lib.metal : null);
-            head.localRotation = Quaternion.Euler(0, 0, 45);
-            Prim(PrimitiveType.Cube, parent, new Vector3(0, 0, -0.2f), new Vector3(0.012f, 0.012f, 0.4f), lib != null ? lib.wood : null);
-            Prim(PrimitiveType.Cube, parent, new Vector3(0, 0.008f, -0.36f), new Vector3(0.002f, 0.018f, 0.07f), lib != null ? lib.rope : null);
-            Prim(PrimitiveType.Cube, parent, new Vector3(0.008f, 0, -0.36f), new Vector3(0.018f, 0.002f, 0.07f), lib != null ? lib.rope : null);
+            Material iron = lib != null ? (lib.steel != null ? lib.steel : lib.metal) : null;
+            Material ash = lib != null ? lib.wood : null, vane = lib != null ? (lib.leather != null ? lib.leather : lib.rope) : null;
+            // Square bodkin head: a tapered socket and a sharp point.
+            var socket = Prim(PrimitiveType.Cube, parent, new Vector3(0, 0, -0.005f), new Vector3(0.016f, 0.016f, 0.03f), iron);
+            socket.localRotation = Quaternion.Euler(0, 0, 45);
+            var point = Prim(PrimitiveType.Cube, parent, new Vector3(0, 0, 0.022f), new Vector3(0.009f, 0.009f, 0.03f), iron);
+            point.localRotation = Quaternion.Euler(0, 0, 45);
+            // Round ash shaft, slightly swelling toward the head.
+            var shaft = Prim(PrimitiveType.Cylinder, parent, new Vector3(0, 0, -0.2f), new Vector3(0.013f, 0.19f, 0.013f), ash);
+            shaft.localRotation = Quaternion.Euler(90f, 0, 0);
+            // Three leather vanes, 120 degrees apart (the bottom one rides in the groove gap).
+            for (var k = 0; k < 3; k++)
+            {
+                var v = new GameObject("Vane").transform;
+                v.SetParent(parent, false);
+                v.localPosition = new Vector3(0, 0, -0.35f);
+                v.localRotation = Quaternion.Euler(0, 0, k * 120f);
+                var f = Prim(PrimitiveType.Cube, v, new Vector3(0, 0.011f, 0), new Vector3(0.0018f, 0.016f, 0.07f), vane);
+                f.localRotation = Quaternion.Euler(-6f, 0, 0);
+            }
         }
 
         static Transform Prim(PrimitiveType t, Transform parent, Vector3 pos, Vector3 scale, Material m)

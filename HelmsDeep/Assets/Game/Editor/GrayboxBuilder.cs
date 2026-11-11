@@ -21,7 +21,8 @@ namespace MarrowRoad.EditorTools
         const string LayoutPath = "Assets/Game/Data/graybox_layout.json";
         public const string BalancePath = "Assets/Game/Data/balance.json";
         const string Gen = "Assets/Game/Generated";
-        const float MerlonW = 1.2f, MerlonGap = 1.1f, MerlonH = 1.2f, BreastH = 1.0f;
+        // Low merlons and wide crenels: a 1.7 m eye sees over the 1.0 m breastwork and between merlons that top out at 1.8 m.
+        const float MerlonW = 1.0f, MerlonGap = 2.4f, MerlonH = 0.8f, BreastH = 1.0f;
 
         static readonly Dictionary<string, Mesh> MeshCache = new Dictionary<string, Mesh>();
         static MaterialLibrary lib;
@@ -154,7 +155,7 @@ namespace MarrowRoad.EditorTools
             GameObjectUtility.SetStaticEditorFlags(breast, StaticEditorFlags.BatchingStatic);
             if (!merlons) return;
             var pitch = MerlonW + MerlonGap;
-            var n = Mathf.FloorToInt((len + MerlonGap) / pitch);
+            var n = Mathf.FloorToInt((len + MerlonGap) / pitch + 0.001f); // epsilon: must match gen_layout.crenel()
             if (n < 1) return;
             var used = n * MerlonW + (n - 1) * MerlonGap;
             var start = Mathf.Min(a0, a1) + (len - used) / 2f + MerlonW / 2f;
@@ -170,7 +171,7 @@ namespace MarrowRoad.EditorTools
             var c = GrayboxLayout.V(layout.gateCenter);
             var root = new GameObject("HornburgGate");
             root.transform.SetParent(parent, false);
-            root.transform.localPosition = new Vector3(c.x, 10f, 0.7f);
+            root.transform.localPosition = new Vector3(c.x, c.y - 3.5f, 0.7f);
             var gate = root.AddComponent<GateDoor>();
             Transform Leaf(string name, float x)
             {
@@ -431,6 +432,11 @@ namespace MarrowRoad.EditorTools
             l.wood = Lit("Wood", new Color(0.33f, 0.22f, 0.13f), null, 0.2f);
             l.metal = Lit("Metal", new Color(0.28f, 0.29f, 0.31f), null, 0.55f, 0.8f);
             l.rope = Lit("Rope", new Color(0.62f, 0.56f, 0.44f), null, 0.1f);
+            // Viewmodel / weapon materials: oiled walnut stock, bright spring steel, worn leather gloves, wool sleeves.
+            l.stock = Lit("Stock", new Color(0.24f, 0.14f, 0.08f), null, 0.42f);
+            l.steel = Lit("Steel", new Color(0.52f, 0.54f, 0.57f), null, 0.72f, 0.9f);
+            l.leather = Lit("Leather", new Color(0.19f, 0.12f, 0.08f), null, 0.28f);
+            l.wool = Lit("Wool", new Color(0.13f, 0.14f, 0.16f), null, 0.05f);
             l.zombieSkin = Lit("ZombieSkin", new Color(0.42f, 0.45f, 0.36f), null, 0.25f);
             l.zombieCloth = Lit("ZombieCloth", new Color(0.2f, 0.18f, 0.16f), null, 0.08f);
             l.zombieWound = Lit("ZombieWound", new Color(0.3f, 0.05f, 0.04f), null, 0.5f);
