@@ -10,6 +10,7 @@ namespace MarrowRoad
     public abstract class BoltTurret : Turret
     {
         protected Transform yaw, pitch, muzzle, stringT;
+        protected ProcBow bow;
         protected float slewYaw = 90f, slewPitch = 60f;
         protected float stringRest = 0.95f, stringDrawn = 0.15f;
         float cooldown = 0.5f;
@@ -50,6 +51,7 @@ namespace MarrowRoad
             pitch.localRotation = Quaternion.RotateTowards(pitch.localRotation, Quaternion.Euler(wantPitch, 0, 0), slewPitch * dt);
             var drawn = Mathf.Clamp01(1f - cooldown / st.interval);
             if (stringT != null) stringT.localPosition = new Vector3(0, stringT.localPosition.y, Mathf.Lerp(stringRest, stringDrawn, drawn));
+            bow?.Set(drawn);
 
             var aligned = Vector3.Angle(muzzle.forward, dir) < 2.5f;
             if (cooldown <= 0f && aligned)

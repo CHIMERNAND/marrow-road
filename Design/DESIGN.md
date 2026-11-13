@@ -30,7 +30,7 @@ Root causes:
 
 ## Core game (design target)
 
-- **Fantasy:** You're one defender on a 20 m wall at night, in rain and torchlight, with hundreds of dead climbing the causeway.
+- **Fantasy:** You're one defender on a 15 m wall at night, in rain and torchlight, with hundreds of dead climbing the causeway.
 - **Loop:** Prep phase, where you spend gold on turret sockets and upgrades. Then the wave, where you fight in first person while the turrets work. Kills give gold, the next wave is harder, and if the gate or the wall is breached you fall back or lose.
 - **Player:** A heavy crossbow (charge, reload, 2–3 bolt types) and a melee weapon for zombies that reach the wall top. You move along the wall walk, the gatehouse and the towers.
 - **Turrets (4):** Wall crossbow (fast, single target), boiling pitch (gate area of effect), catapult (long-range splash), ballista (pierces armor). Each has 2 upgrade tiers.
@@ -68,7 +68,7 @@ Each milestone is one substantial batch of work, not a series of small tweaks. I
 - Done when: you can play 5 minutes, it holds 60 fps on the G15 at 1080p, the scale test passes, and you say "this feels like a wall".
 
 M1 status: **done, signed off 2026-11-10** (PRs #2, #39):
-- [x] Layout source of truth: `Assets/Game/Data/gen_layout.py` -> `graybox_layout.json` (20 m Deeping Wall, 3 bastions, Hornburg gate on a 10 m shelf, 60 m causeway, keep, 1.8 m scale dummies).
+- [x] Layout source of truth: `Assets/Game/Data/gen_layout.py` -> `graybox_layout.json` (Deeping Wall lowered from 20 m to 15 m after M2 playtest, 3 bastions, 3 timber archer hoardings, low merlons with 2.4 m crenels, Hornburg gate on a 6 m shelf, 60 m causeway, keep, 1.8 m scale dummies).
 - [x] Editor builder `Marrow Road > Build Graybox Scene` generates `Siege_Graybox.unity` (metre-grid materials, crenellations, gate, sockets, torches, moon, fog, post volume).
 - [x] FP controller (walk 1.6 / sprint 4.2 m/s, crouch, Q/E lean, 1.7 m eye), crossbow (85 m/s ballistic bolt, 1.5 s spanning, ADS, drop ticks at 50/75/100 m, hit/headshot/kill markers).
 - [x] Walker zombie on a runtime NavMesh (spawn -> causeway -> gate), head x3 hitboxes, stagger, topple death, pooling.

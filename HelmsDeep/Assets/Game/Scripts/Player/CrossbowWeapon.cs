@@ -23,8 +23,10 @@ namespace MarrowRoad
         public Vector3 Muzzle => muzzle.position;
 
         FirstPersonController body;
-        Transform rig, stringT, loadedBolt, limbL, limbR, muzzle;
-        Vector3 hipPos = new Vector3(0.17f, -0.17f, 0.36f);
+        Transform rig, loadedBolt, muzzle;
+        ProcBow bow;
+        Vector3 hipPos = new Vector3(0.15f, -0.16f, 0.33f);
+        static readonly Vector3 HipEuler = new Vector3(-1.5f, -4f, 5f); // slight inward cant at the hip
         Vector3 adsPos = new Vector3(0f, -0.044f, 0.43f); // rear notch ~18 cm from the eye
         float reloadT = -1f;
         float recoil;
@@ -46,40 +48,69 @@ namespace MarrowRoad
             rig = new GameObject("CrossbowRig").transform;
             rig.SetParent(cam, false);
             rig.localPosition = hipPos;
-            Material wood = lib != null ? lib.wood : null, metal = lib != null ? lib.metal : null, rope = lib != null ? lib.rope : null;
-            // Stock / tiller, 0.75 m long, butt back past the cheek.
-            Part(rig, new Vector3(0, -0.02f, -0.12f), new Vector3(0.045f, 0.05f, 0.62f), wood);
-            Part(rig, new Vector3(0, -0.05f, -0.40f), new Vector3(0.05f, 0.11f, 0.16f), wood);
-            // Trigger lever under the tiller.
-            Part(rig, new Vector3(0, -0.085f, -0.14f), new Vector3(0.012f, 0.012f, 0.18f), metal);
-            // Steel prod (two limbs, swept forward), stirrup at the nose.
-            var nose = new Vector3(0, 0.0f, 0.2f);
-            limbL = Part(rig, nose + new Vector3(-0.17f, 0, -0.03f), new Vector3(0.34f, 0.025f, 0.03f), metal);
-            limbR = Part(rig, nose + new Vector3(0.17f, 0, -0.03f), new Vector3(0.34f, 0.025f, 0.03f), metal);
-            limbL.localRotation = Quaternion.Euler(0, -12, 0);
-            limbR.localRotation = Quaternion.Euler(0, 12, 0);
-            Part(rig, nose + new Vector3(0, -0.02f, 0.05f), new Vector3(0.09f, 0.01f, 0.01f), metal);
-            // String: drawn back to the nut when loaded.
-            stringT = Part(rig, new Vector3(0, 0.012f, -0.02f), new Vector3(0.6f, 0.006f, 0.006f), rope);
-            // Rear sight blade and front post, used when aiming down sights.
-            // Open notch: two thin blades with a gap, tops level with the front post, so the sight
-            // frames the target instead of covering it when the eye is behind it.
-            Part(rig, new Vector3(-0.009f, 0.032f, -0.25f), new Vector3(0.01f, 0.022f, 0.004f), metal);
-            Part(rig, new Vector3(0.009f, 0.032f, -0.25f), new Vector3(0.01f, 0.022f, 0.004f), metal);
-            Part(rig, new Vector3(0, 0.032f, 0.17f), new Vector3(0.004f, 0.022f, 0.004f), metal);
-            // Loaded bolt in the groove.
+            Material M(Material a, Material b) => a != null ? a : b;
+            Material wood = lib != null ? M(lib.stock, lib.wood) : null;
+            Material steel = lib != null ? M(lib.steel, lib.metal) : null;
+            Material iron = lib != null ? lib.metal : null, rope = lib != null ? lib.rope : null;
+            Material glove = lib != null ? M(lib.leather, lib.wood) : null, sleeve = lib != null ? M(lib.wool, lib.dark) : null;
+            ProcBow.PartFn P = (parent, pos, size, m) => Part(parent, pos, size, m);
+
+            // Tiller: deep at the lock, slimmer toward the nose; bolt groove along the top.
+            Part(rig, new Vector3(0, -0.018f, -0.15f), new Vector3(0.05f, 0.068f, 0.26f), wood);
+            Part(rig, new Vector3(0, -0.01f, 0.1f), new Vector3(0.044f, 0.05f, 0.26f), wood);
+            Part(rig, new Vector3(0, 0.0158f, 0.08f), new Vector3(0.012f, 0.002f, 0.3f), lib != null ? lib.dark : null);
+            // Butt stock, dropping away behind the lock, with an iron butt plate.
+            var butt = Part(rig, new Vector3(0, -0.06f, -0.39f), new Vector3(0.046f, 0.1f, 0.24f), wood);
+            butt.localRotation = Quaternion.Euler(9f, 0, 0);
+            var plate = Part(rig, new Vector3(0, -0.08f, -0.51f), new Vector3(0.05f, 0.11f, 0.012f), iron);
+            plate.localRotation = Quaternion.Euler(9f, 0, 0);
+            // Lock: side plates, rolling nut, bolt-holding spring and the long trigger lever.
+            foreach (var sx in new[] { -1f, 1f })
+                Part(rig, new Vector3(sx * 0.0265f, -0.004f, -0.03f), new Vector3(0.004f, 0.045f, 0.08f), iron);
+            var nut = Part(rig, new Vector3(0, 0.014f, -0.025f), new Vector3(0.04f, 0.009f, 0.04f), steel, PrimitiveType.Cylinder);
+            nut.localRotation = Quaternion.Euler(0, 0, 90f);
+            Part(rig, new Vector3(0, 0.02f, 0.0f), new Vector3(0.008f, 0.003f, 0.05f), steel);
+            ProcBow.Strut(P, rig, new Vector3(0, -0.055f, -0.06f), new Vector3(0, -0.085f, -0.27f), 0.012f, 0.012f, iron);
+            // Rear notch sight on a base plate, front post at the nose (ADS geometry: rear notch ~18 cm from the eye).
+            Part(rig, new Vector3(0, 0.019f, -0.25f), new Vector3(0.032f, 0.006f, 0.014f), iron);
+            Part(rig, new Vector3(-0.009f, 0.032f, -0.25f), new Vector3(0.01f, 0.022f, 0.004f), iron);
+            Part(rig, new Vector3(0.009f, 0.032f, -0.25f), new Vector3(0.01f, 0.022f, 0.004f), iron);
+            Part(rig, new Vector3(0, 0.027f, 0.17f), new Vector3(0.004f, 0.032f, 0.004f), iron);
+            // Iron nose cap, rope bridle binding the prod, and the spanning stirrup.
+            Part(rig, new Vector3(0, -0.01f, 0.225f), new Vector3(0.05f, 0.056f, 0.03f), iron);
+            Part(rig, new Vector3(0, 0.008f, 0.205f), new Vector3(0.062f, 0.036f, 0.034f), rope);
+            var s0 = new Vector3(0, -0.025f, 0.24f);
+            ProcBow.Strut(P, rig, s0 + new Vector3(-0.022f, 0, 0), new Vector3(-0.05f, -0.06f, 0.33f), 0.008f, 0.008f, iron);
+            ProcBow.Strut(P, rig, s0 + new Vector3(0.022f, 0, 0), new Vector3(0.05f, -0.06f, 0.33f), 0.008f, 0.008f, iron);
+            ProcBow.Strut(P, rig, new Vector3(-0.054f, -0.06f, 0.33f), new Vector3(0.054f, -0.06f, 0.33f), 0.009f, 0.009f, iron);
+            // Steel prod: 0.62 m span, recurving back as the string is spanned.
+            bow = new ProcBow(rig, new Vector3(0, 0.017f, 0.205f), 0.031f, 0.28f, 7, 0.026f, 0.011f, 0.013f, 14f, 46f, -0.025f, 0.004f, steel, rope, P);
+
+            // Gloved hands: left under the fore-tiller, right on the grip with fingers on the lever.
+            Part(rig, new Vector3(-0.004f, -0.05f, 0.06f), new Vector3(0.058f, 0.026f, 0.095f), glove);
+            Part(rig, new Vector3(-0.034f, -0.022f, 0.065f), new Vector3(0.02f, 0.05f, 0.088f), glove);
+            var thumbL = Part(rig, new Vector3(0.027f, -0.022f, 0.045f), new Vector3(0.016f, 0.02f, 0.055f), glove);
+            thumbL.localRotation = Quaternion.Euler(0, -12f, 0);
+            Part(rig, new Vector3(-0.02f, -0.07f, -0.005f), new Vector3(0.068f, 0.056f, 0.07f), glove);
+            ProcBow.Strut(P, rig, new Vector3(-0.025f, -0.08f, -0.02f), new Vector3(-0.12f, -0.2f, -0.34f), 0.085f, 0.08f, sleeve);
+            Part(rig, new Vector3(0.034f, -0.03f, -0.255f), new Vector3(0.026f, 0.066f, 0.09f), glove);
+            Part(rig, new Vector3(0.004f, -0.068f, -0.245f), new Vector3(0.058f, 0.026f, 0.08f), glove);
+            Part(rig, new Vector3(-0.03f, -0.03f, -0.25f), new Vector3(0.012f, 0.05f, 0.06f), glove);
+            ProcBow.Strut(P, rig, new Vector3(0.03f, -0.06f, -0.3f), new Vector3(0.11f, -0.2f, -0.6f), 0.085f, 0.08f, sleeve);
+
+            // Loaded bolt: nock at the nut, head proud of the prod.
             loadedBolt = new GameObject("LoadedBolt").transform;
             loadedBolt.SetParent(rig, false);
-            loadedBolt.localPosition = new Vector3(0, 0.014f, 0.2f);
+            loadedBolt.localPosition = new Vector3(0, 0.022f, 0.37f);
             Bolt.BuildVisual(loadedBolt, lib);
             muzzle = new GameObject("Muzzle").transform;
             muzzle.SetParent(rig, false);
-            muzzle.localPosition = new Vector3(0, 0.014f, 0.25f);
+            muzzle.localPosition = new Vector3(0, 0.022f, 0.4f);
         }
 
-        static Transform Part(Transform parent, Vector3 pos, Vector3 size, Material m)
+        static Transform Part(Transform parent, Vector3 pos, Vector3 size, Material m, PrimitiveType type = PrimitiveType.Cube)
         {
-            var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var go = GameObject.CreatePrimitive(type);
             Destroy(go.GetComponent<Collider>());
             go.layer = 2;
             go.transform.SetParent(parent, false);
@@ -148,15 +179,12 @@ namespace MarrowRoad
             pos += new Vector3(0.02f, -0.12f, -0.05f) * span;
             pos += new Vector3(0, 0.01f, -0.06f) * recoil;
             rig.localPosition = pos;
-            rig.localRotation = Quaternion.Euler(-recoil * 9f + span * 35f, sway.x * 200f, span * -20f + sway.x * 120f);
+            var hip = HipEuler * (1f - Ads01);
+            rig.localRotation = Quaternion.Euler(hip.x - recoil * 9f + span * 35f, hip.y + sway.x * 200f, hip.z + span * -20f + sway.x * 120f);
 
-            // String sits forward (slack) while unloaded, then slides back to the nut.
-            var drawn = Loaded ? 1f : Reload01;
-            stringT.localPosition = new Vector3(0, 0.012f, Mathf.Lerp(0.17f, -0.02f, drawn));
-            stringT.localScale = new Vector3(Mathf.Lerp(0.68f, 0.6f, drawn), 0.006f, 0.006f);
-            var flex = Mathf.Lerp(4f, 16f, drawn);
-            limbL.localRotation = Quaternion.Euler(0, -flex, 0);
-            limbR.localRotation = Quaternion.Euler(0, flex, 0);
+            // String snaps forward on release, then is spanned back to the nut; the prod flexes with it.
+            var drawn = Loaded ? 1f : Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.15f, 0.9f, Reload01));
+            bow.Set(drawn);
         }
 
         public void MarkKill(bool headshot)
