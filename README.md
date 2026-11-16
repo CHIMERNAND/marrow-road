@@ -2,7 +2,7 @@
 
 A first-person zombie siege defense. You hold a huge fortress wall at night while the dead come up the valley. You fight with a heavy crossbow and spend the gold from your kills on wall turrets.
 
-- **Engine:** Unity 6 (6000.3.26f1), URP, in [`HelmsDeep/`](HelmsDeep/)
+- **Engine:** Unity 6 (6000.3.26f1, moving to 6000.6.8f1: see the Editor upgrade in [`Design/DESIGN.md`](Design/DESIGN.md)), URP, in [`HelmsDeep/`](HelmsDeep/)
 - **Design & roadmap:** [`Design/DESIGN.md`](Design/DESIGN.md)
 - **Asset pipeline:** [`Design/ASSET_PIPELINE.md`](Design/ASSET_PIPELINE.md)
 - **Frozen feature backlog:** [`Design/BACKLOG.md`](Design/BACKLOG.md)
